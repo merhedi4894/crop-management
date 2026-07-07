@@ -659,10 +659,12 @@
                     // Wait a tiny bit for the DOM to paint
                     await new Promise(r => setTimeout(r, 50));
                     
-                    const canvas = await html2canvas(tempDiv, { scale: 2, backgroundColor: '#ffffff' });
+                    // Optimized canvas generation: scale 1.5 and JPEG for smaller file size and faster generation
+                    const canvas = await html2canvas(tempDiv, { scale: 1.5, backgroundColor: '#ffffff', useCORS: true });
                     document.body.removeChild(tempDiv); 
                     
-                    const imgData = canvas.toDataURL('image/png');
+                    // Use JPEG with 0.7 quality for compression
+                    const imgData = canvas.toDataURL('image/jpeg', 0.7);
                     const { jsPDF } = window.jspdf;
                     const pdf = new jsPDF('p', 'mm', 'a4');
                     const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -673,19 +675,20 @@
                     let heightLeft = imgHeight;
                     let position = 10;
                     
-                    pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                    pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight);
                     heightLeft -= (pdfHeight - 20);
                     
                     while (heightLeft > 0) {
                         position = heightLeft - imgHeight + 10;
                         pdf.addPage();
-                        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                        pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight);
                         heightLeft -= (pdfHeight - 20);
                     }
                     
                     if (preview) {
-                        const dataUri = pdf.output('datauristring');
-                        setPdfPreview({ uri: dataUri, name: farmer.name, doc: pdf });
+                        // Use Blob URL for preview to bypass browser URI length limits
+                        const blobUrl = pdf.output('bloburl');
+                        setPdfPreview({ uri: blobUrl, name: farmer.name, doc: pdf });
                     } else {
                         pdf.save(`${farmer.name}_report.pdf`);
                     }
@@ -786,10 +789,12 @@
                             
                             await new Promise(r => setTimeout(r, 50));
                             
-                            const canvas = await html2canvas(tempDiv, { scale: 2, backgroundColor: '#ffffff' });
+                            // Optimized canvas generation
+                            const canvas = await html2canvas(tempDiv, { scale: 1.5, backgroundColor: '#ffffff', useCORS: true });
                             document.body.removeChild(tempDiv);
                             
-                            const imgData = canvas.toDataURL('image/png');
+                            // Use JPEG compression
+                            const imgData = canvas.toDataURL('image/jpeg', 0.7);
                             const { jsPDF } = window.jspdf;
                             const pdf = new jsPDF('p', 'mm', 'a4');
                             const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -800,13 +805,13 @@
                             let heightLeft = imgHeight;
                             let position = 10;
                             
-                            pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                            pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight);
                             heightLeft -= (pdfHeight - 20);
                             
                             while (heightLeft > 0) {
                                 position = heightLeft - imgHeight + 10;
                                 pdf.addPage();
-                                pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                                pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight);
                                 heightLeft -= (pdfHeight - 20);
                             }
                             
