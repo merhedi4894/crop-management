@@ -29,9 +29,18 @@
 
     <style>
         body { font-family: 'Hind Siliguri', sans-serif; }
-        .dot-spinner { position: relative; width: 80px; height: 80px; }
-        .dot-spinner div { position: absolute; width: 16px; height: 16px; border-radius: 50%; top: 0; left: 0; transform-origin: 40px 40px; animation: dot-spin 1.2s linear infinite; }
-        @keyframes dot-spin { 0% { transform: rotate(0deg) translate(32px, 0); } 100% { transform: rotate(360deg) translate(32px, 0); } }
+        
+        /* New Beautiful Colorful Wheel Spinner */
+        .ring-spinner { width: 80px; height: 80px; position: relative; }
+        .ring-spinner div { position: absolute; width: 100%; height: 100%; border-radius: 50%; border: 8px solid transparent; }
+        .ring-spinner div:nth-child(1) { border-top-color: #FF5733; animation: spin 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite; }
+        .ring-spinner div:nth-child(2) { border-right-color: #33FF57; animation: spin 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite; animation-delay: -0.25s; }
+        .ring-spinner div:nth-child(3) { border-bottom-color: #3357FF; animation: spin 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite; animation-delay: -0.5s; }
+        .ring-spinner div:nth-child(4) { border-left-color: #F033FF; animation: spin 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite; animation-delay: -0.75s; }
+        .ring-center { position: absolute; top: 50%; left: 50%; width: 15px; height: 15px; background: #FFBD33; border-radius: 50%; transform: translate(-50%, -50%); animation: pulse 1.2s ease-in-out infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { transform: scale(0.5) translate(-50%, -50%); opacity: 0.5; } 50% { transform: scale(1) translate(-50%, -50%); opacity: 1; } }
+
         .btn-spinner { border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; width: 16px; height: 16px; animation: btn-spin 1s linear infinite; display: inline-block; }
         @keyframes btn-spin { to { transform: rotate(360deg); } }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -59,7 +68,6 @@
            storageBucket: "crop-management-116fe.firebasestorage.app",
            messagingSenderId: "1040293009053",
            appId: "1:1040293009053:web:7b68b487297b534048a674",
-
         };
 
         let auth, db;
@@ -73,11 +81,13 @@
         // 2. HELPER COMPONENTS
         // ==========================================
         const ColorfulSpinner = () => {
-            const colors = ['#FF5733', '#33FF57', '#3357FF', '#F033FF', '#FF33A1', '#33FFF5', '#FFBD33', '#A133FF'];
             return (
                 <div className="flex flex-col justify-center items-center h-screen bg-slate-900">
-                    <div className="dot-spinner">{colors.map((c, i) => <div key={i} style={{backgroundColor: c, animationDelay: `${i*0.1}s`}}></div>)}</div>
-                    <p className="mt-6 text-slate-400">লোড হচ্ছে...</p>
+                    <div className="ring-spinner">
+                        <div></div><div></div><div></div><div></div>
+                        <div className="ring-center"></div>
+                    </div>
+                    <p className="mt-6 text-slate-400">সিস্টেম লোড হচ্ছে...</p>
                 </div>
             );
         };
@@ -315,7 +325,7 @@
             );
         };
 
-        const FarmerDetailsModal = ({ farmer, onClose, handlePayment, addNewYear, deleteRecord, softDeleteFarmer }) => {
+        const FarmerDetailsModal = ({ farmer, onClose, handlePayment, addNewYear, handleDeleteRecord, softDeleteFarmer }) => {
             const [payAmount, setPayAmount] = useState('');
             const fTotalPaid = farmer.records.reduce((a, r) => a + r.paid, 0);
             const fTotalDue = farmer.records.reduce((a, r) => a + r.remaining, 0);
@@ -356,18 +366,19 @@
                                                 <td className="p-1.5 border-b">{rec.total.toLocaleString()}</td>
                                                 <td className="p-1.5 border-b text-emerald-600">{rec.paid.toLocaleString()}</td>
                                                 <td className="p-1.5 border-b font-bold text-rose-600">{rec.remaining === 0 ? <span className="text-emerald-600 text-[10px]">পরিশোধ</span> : rec.remaining.toLocaleString()}</td>
-                                                <td className="p-1.5 border-b"><button onClick={() => deleteRecord(farmer, i)} className="text-rose-500 hover:text-rose-700"><svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button></td>
+                                                <td className="p-1.5 border-b"><button onClick={() => handleDeleteRecord(farmer, i)} className="text-rose-500 hover:text-rose-700"><svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button></td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
 
-                            <div className="bg-slate-50 p-3 rounded-lg border mb-4">
-                                <label className="block text-xs font-medium text-slate-700 mb-2">নতুন কিস্তি জমা দিন (তারিখ অটো সেভ হবে)</label>
-                                <div className="flex space-x-2">
-                                    <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="টাকা" className="flex-1 p-2 border rounded-lg text-sm outline-none focus:ring-1 focus:ring-indigo-500" />
-                                    <button onClick={() => { if(payAmount > 0) { handlePayment(farmer, payAmount); setPayAmount(''); } }} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">জমা করুন</button>
+                            {/* Slim Mobile Input & Button */}
+                            <div className="bg-slate-50 p-2 rounded-lg border mb-4">
+                                <label className="block text-[10px] font-medium text-slate-700 mb-1">নতুন কিস্তি জমা দিন (তারিখ অটো সেভ হবে)</label>
+                                <div className="flex space-x-1 items-center">
+                                    <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="টাকা" className="flex-1 p-1.5 border rounded text-xs outline-none focus:ring-1 focus:ring-indigo-500" />
+                                    <button onClick={() => { if(payAmount > 0) { handlePayment(farmer, payAmount); setPayAmount(''); } }} className="bg-indigo-600 text-white px-2 py-1.5 rounded text-xs font-semibold">জমা করুন</button>
                                 </div>
                             </div>
                             <div className="flex space-y-2 md:space-y-0 md:space-x-2 flex-col md:flex-row">
@@ -438,7 +449,7 @@
                     ownerId: user.uid, name: formData.name, landAmount: Number(formData.landAmount), startMonth: formData.startMonth, startYear: Number(formData.startYear),
                     status: 'active',
                     records: [{ year: Number(formData.startYear), rate: Number(formData.rate), total, paid: Number(formData.advance), remaining: total - Number(formData.advance) }],
-                    payments: [] // Initialize empty hidden payment log
+                    payments: [] 
                 };
                 await db.collection('farmers').add(newFarmer);
                 setShowAddForm(false);
@@ -456,9 +467,9 @@
                     }
                 }
                 
-                // Auto Date Hidden Record
+                // English date format for PDF compatibility
                 const now = new Date();
-                const dateStr = now.toLocaleDateString('bn-BD', { year: 'numeric', month: 'long', day: 'numeric' });
+                const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
                 const newPaymentRecord = { date: dateStr, amount: Number(amount) };
                 const updatedPayments = [...(farmer.payments || []), newPaymentRecord];
 
@@ -484,13 +495,18 @@
                 showToastMsg("নতুন সালের হিসাব যোগ হয়েছে", "success");
             };
 
-            const deleteRecord = async (farmer, index) => {
-                if(window.confirm("এই সালের হিসাবটি মুছে ফেলতে চান?")) {
-                    const newRecs = farmer.records.filter((_, i) => i !== index);
-                    await db.collection('farmers').doc(farmer.id).update({ records: newRecs });
-                    setSelectedFarmer({...farmer, records: newRecs}); 
-                    showToastMsg("রেকর্ড ডিলিট হয়েছে", "success");
-                }
+            // Delete Record with Password Confirmation
+            const handleDeleteRecord = (farmer, index) => {
+                setPwdModal({
+                    show: true,
+                    action: async () => {
+                        const newRecs = farmer.records.filter((_, i) => i !== index);
+                        await db.collection('farmers').doc(farmer.id).update({ records: newRecs });
+                        setSelectedFarmer({...farmer, records: newRecs}); 
+                        setPwdModal({ show: false, action: null });
+                        showToastMsg("রেকর্ড ডিলিট হয়েছে", "success");
+                    }
+                });
             };
 
             const softDeleteFarmer = (farmer) => {
@@ -516,15 +532,14 @@
                     headStyles: { fillColor: [49, 46, 129] }
                 });
                 
-                // Add Hidden Payment History to PDF
                 if (farmer.payments && farmer.payments.length > 0) {
                     const finalY = doc.lastAutoTable.finalY || 40;
-                    doc.setFontSize(14); doc.text("Payment History (Auto Recorded)", 14, finalY + 10);
+                    doc.setFontSize(14); doc.text("Payment History", 14, finalY + 10);
                     doc.autoTable({
                         startY: finalY + 14,
                         head: [['Date', 'Amount Paid']],
-                        body: farmer.payments.map(p => [p.date, `${p.amount} ৳`]),
-                        headStyles: { fillColor: [22, 163, 74] } // Green color
+                        body: farmer.payments.map(p => [p.date, `${p.amount} Tk`]),
+                        headStyles: { fillColor: [22, 163, 74] } 
                     });
                 }
                 
@@ -563,7 +578,7 @@
                                 doc.autoTable({
                                     startY: finalY + 12,
                                     head: [['Date', 'Amount']],
-                                    body: f.payments.map(p => [p.date, `${p.amount} ৳`]),
+                                    body: f.payments.map(p => [p.date, `${p.amount} Tk`]),
                                     headStyles: { fillColor: [22, 163, 74] }
                                 });
                             }
@@ -734,7 +749,7 @@
                     
                     <Toast message={toast?.msg} type={toast?.type} />
 
-                    {selectedFarmer && <FarmerDetailsModal farmer={selectedFarmer} onClose={() => setSelectedFarmer(null)} handlePayment={handlePayment} addNewYear={addNewYear} deleteRecord={deleteRecord} softDeleteFarmer={softDeleteFarmer} />}
+                    {selectedFarmer && <FarmerDetailsModal farmer={selectedFarmer} onClose={() => setSelectedFarmer(null)} handlePayment={handlePayment} addNewYear={addNewYear} handleDeleteRecord={handleDeleteRecord} softDeleteFarmer={softDeleteFarmer} />}
                     {showYearModal && <AddYearModal farmer={showYearModal} onClose={() => setShowYearModal(null)} onSave={saveNewYear} />}
                     {pwdModal.show && <PasswordConfirmModal onClose={() => setPwdModal({show: false, action: null})} onConfirm={pwdModal.action} showToast={showToastMsg} />}
                     
