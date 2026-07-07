@@ -87,13 +87,15 @@
         let cachedBengaliFont = null;
         const fetchBengaliFont = async () => {
             if (cachedBengaliFont) return cachedBengaliFont;
-            const url = 'https://cdn.jsdelivr.net/gh/google/fonts/ofl/hindsiliguri/HindSiliguri-Regular.ttf';
+            const url = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/hindsiliguri/HindSiliguri-Regular.ttf';
             try {
                 const response = await fetch(url);
+                if (!response.ok) throw new Error("Font fetch failed");
                 const blob = await response.blob();
-                const base64 = await new Promise((resolve) => {
+                const base64 = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = reject;
                     reader.readAsDataURL(blob);
                 });
                 cachedBengaliFont = base64;
@@ -608,42 +610,55 @@
 
             const exportFarmerPDF = async (farmer, preview = false) => {
                 showToastMsg("পিডিএফ তৈরি হচ্ছে...", "info");
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                
-                const fontBase64 = await fetchBengaliFont();
-                if (fontBase64) {
-                    doc.addFileToVFS("HindSiliguri.ttf", fontBase64);
-                    doc.addFont("HindSiliguri.ttf", "HindSiliguri", "normal");
-                    doc.setFont("HindSiliguri");
-                }
-                
-                doc.setFontSize(18); doc.text("Land Management Report", 14, 15);
-                doc.setFontSize(12); doc.text(`Name: ${farmer.name}`, 14, 25); doc.text(`Land: ${farmer.landAmount} Shotangsho`, 14, 32);
-                doc.autoTable({
-                    startY: 40, head: [['Year', 'Rate (33 Sqt)', 'Total', 'Paid', 'Remaining']],
-                    body: farmer.records.map(r => [r.year, `${r.rate}`, `${r.total}`, `${r.paid}`, `${r.remaining}`]),
-                    headStyles: { fillColor: [49, 46, 129], font: "HindSiliguri" },
-                    styles: { font: "HindSiliguri" }
-                });
-                
-                if (farmer.payments && farmer.payments.length > 0) {
-                    const finalY = doc.lastAutoTable.finalY || 40;
-                    doc.setFontSize(14); doc.text("Payment History", 14, finalY + 10);
+                try {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+                    
+                    const fontBase64 = await fetchBengaliFont();
+                    let tableFont = "helvetica"; // default jsPDF font
+                    
+                    if (fontBase64) {
+                        doc.addFileToVFS("HindSiliguri.ttf", fontBase64);
+                        doc.addFont("HindSiliguri.ttf", "HindSiliguri", "normal");
+                        doc.setFont("HindSiliguri");
+                        tableFont = "HindSiliguri";
+                    } else {
+                        showToastMsg("বাংলা ফন্ট লোডে সমস্যা, ইংরেজিতে তৈরি হচ্ছে", "error");
+                    }
+                    
+                    doc.setFontSize(18); doc.text("Land Management Report", 14, 15);
+                    doc.setFontSize(12); doc.text(`Name: ${farmer.name}`, 14, 25); doc.text(`Land: ${farmer.landAmount} Shotangsho`, 14, 32);
+                    
                     doc.autoTable({
-                        startY: finalY + 14,
-                        head: [['Date', 'Amount Paid']],
-                        body: farmer.payments.map(p => [p.date, `${p.amount} Tk`]),
-                        headStyles: { fillColor: [22, 163, 74], font: "HindSiliguri" },
-                        styles: { font: "HindSiliguri" } 
+                        startY: 40, 
+                        head: [['Year', 'Rate (33 Sqt)', 'Total', 'Paid', 'Remaining']],
+                        body: farmer.records.map(r => [r.year, `${r.rate}`, `${r.total}`, `${r.paid}`, `${r.remaining}`]),
+                        headStyles: { fillColor: [49, 46, 129], font: tableFont },
+                        styles: { font: tableFont }
                     });
-                }
-                
-                if (preview) {
-                    const dataUri = doc.output('datauristring');
-                    setPdfPreview({ uri: dataUri, name: farmer.name, doc: doc });
-                } else {
-                    doc.save(`${farmer.name}_report.pdf`);
+                    
+                    if (farmer.payments && farmer.payments.length > 0) {
+                        const finalY = doc.lastAutoTable.finalY || 40;
+                        doc.setFontSize(14); doc.text("Payment History", 14, finalY + 10);
+                        doc.autoTable({
+                            startY: finalY + 14,
+                            head: [['Date', 'Amount Paid']],
+                            body: farmer.payments.map(p => [p.date, `${p.amount} Tk`]),
+                            headStyles: { fillColor: [22, 163, 74], font: tableFont },
+                            styles: { font: tableFont } 
+                        });
+                    }
+                    
+                    if (preview) {
+                        const dataUri = doc.output('datauristring');
+                        setPdfPreview({ uri: dataUri, name: farmer.name, doc: doc });
+                    } else {
+                        doc.save(`${farmer.name}_report.pdf`);
+                    }
+                    setToast(null); // Clear loading toast on success
+                } catch (error) {
+                    console.error(error);
+                    showToastMsg("পিডিএফ তৈরিতে ত্রুটি ঘটেছে।", "error");
                 }
             };
 
@@ -654,42 +669,52 @@
                     action: async () => {
                         setPwdModal({ show: false, action: null, message: '' });
                         showToastMsg("পিডিএফ তৈরি হচ্ছে...", "info");
-                        const snap = await db.collection('farmers').where('ownerId', '==', user.uid).get();
-                        const allFarmers = snap.docs.map(d => d.data());
-                        const { jsPDF } = window.jspdf;
-                        const doc = new jsPDF();
-                        
-                        const fontBase64 = await fetchBengaliFont();
-                        if (fontBase64) {
-                            doc.addFileToVFS("HindSiliguri.ttf", fontBase64);
-                            doc.addFont("HindSiliguri.ttf", "HindSiliguri", "normal");
-                            doc.setFont("HindSiliguri");
-                        }
-
-                        allFarmers.forEach((f, idx) => {
-                            if(idx > 0) doc.addPage();
-                            doc.setFontSize(18); doc.text("Full Land Management Report", 14, 15);
-                            doc.setFontSize(12); doc.text(`Farmer: ${f.name} (${f.status})`, 14, 25); doc.text(`Land: ${f.landAmount} Shotangsho`, 14, 32);
-                            doc.autoTable({
-                                startY: 40, head: [['Year', 'Rate (33 Sqt)', 'Total', 'Paid', 'Remaining']],
-                                body: f.records.map(r => [r.year, `${r.rate}`, `${r.total}`, `${r.paid}`, `${r.remaining}`]),
-                                headStyles: { fillColor: [49, 46, 129], font: "HindSiliguri" },
-                                styles: { font: "HindSiliguri" }
-                            });
+                        try {
+                            const snap = await db.collection('farmers').where('ownerId', '==', user.uid).get();
+                            const allFarmers = snap.docs.map(d => d.data());
+                            const { jsPDF } = window.jspdf;
+                            const doc = new jsPDF();
                             
-                            if (f.payments && f.payments.length > 0) {
-                                const finalY = doc.lastAutoTable.finalY || 40;
-                                doc.setFontSize(12); doc.text("Payment History", 14, finalY + 8);
-                                doc.autoTable({
-                                    startY: finalY + 12,
-                                    head: [['Date', 'Amount']],
-                                    body: f.payments.map(p => [p.date, `${p.amount} Tk`]),
-                                    headStyles: { fillColor: [22, 163, 74], font: "HindSiliguri" },
-                                    styles: { font: "HindSiliguri" }
-                                });
+                            const fontBase64 = await fetchBengaliFont();
+                            let tableFont = "helvetica"; // default
+                            if (fontBase64) {
+                                doc.addFileToVFS("HindSiliguri.ttf", fontBase64);
+                                doc.addFont("HindSiliguri.ttf", "HindSiliguri", "normal");
+                                doc.setFont("HindSiliguri");
+                                tableFont = "HindSiliguri";
+                            } else {
+                                showToastMsg("বাংলা ফন্ট লোডে সমস্যা, ইংরেজিতে তৈরি হচ্ছে", "error");
                             }
-                        });
-                        doc.save(`All_Farmers_Report.pdf`);
+
+                            allFarmers.forEach((f, idx) => {
+                                if(idx > 0) doc.addPage();
+                                doc.setFontSize(18); doc.text("Full Land Management Report", 14, 15);
+                                doc.setFontSize(12); doc.text(`Farmer: ${f.name} (${f.status})`, 14, 25); doc.text(`Land: ${f.landAmount} Shotangsho`, 14, 32);
+                                doc.autoTable({
+                                    startY: 40, head: [['Year', 'Rate (33 Sqt)', 'Total', 'Paid', 'Remaining']],
+                                    body: f.records.map(r => [r.year, `${r.rate}`, `${r.total}`, `${r.paid}`, `${r.remaining}`]),
+                                    headStyles: { fillColor: [49, 46, 129], font: tableFont },
+                                    styles: { font: tableFont }
+                                });
+                                
+                                if (f.payments && f.payments.length > 0) {
+                                    const finalY = doc.lastAutoTable.finalY || 40;
+                                    doc.setFontSize(12); doc.text("Payment History", 14, finalY + 8);
+                                    doc.autoTable({
+                                        startY: finalY + 12,
+                                        head: [['Date', 'Amount']],
+                                        body: f.payments.map(p => [p.date, `${p.amount} Tk`]),
+                                        headStyles: { fillColor: [22, 163, 74], font: tableFont },
+                                        styles: { font: tableFont }
+                                    });
+                                }
+                            });
+                            doc.save(`All_Farmers_Report.pdf`);
+                            setToast(null); // Clear loading toast
+                        } catch (error) {
+                            console.error(error);
+                            showToastMsg("পিডিএফ তৈরিতে ত্রুটি ঘটেছে।", "error");
+                        }
                     }
                 });
             };
