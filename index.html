@@ -59,7 +59,7 @@
         const { useState, useEffect, useRef } = React;
 
         // ==========================================
-        // 1. FIREBASE CONFIGURATION
+        // 1. FIREBASE CONFIGURATION & HELPERS
         // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyCJd1-9NNhmI4rumaanY8A1VF4wLvg4pkg",
@@ -81,6 +81,27 @@
             let msg = err.message || "একটি ত্রুটি ঘটেছে।";
             msg = msg.replace(/\bhttps?:\/\/\S+/gi, '').replace(/\s+/g, ' ').trim();
             return msg;
+        };
+
+        // Fetch and cache Bengali Font for PDF
+        let cachedBengaliFont = null;
+        const fetchBengaliFont = async () => {
+            if (cachedBengaliFont) return cachedBengaliFont;
+            const url = 'https://cdn.jsdelivr.net/gh/google/fonts/ofl/hindsiliguri/HindSiliguri-Regular.ttf';
+            try {
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const base64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(blob);
+                });
+                cachedBengaliFont = base64;
+                return base64;
+            } catch (e) {
+                console.error("Font fetch error", e);
+                return null;
+            }
         };
 
         // ==========================================
@@ -419,12 +440,19 @@
                                 </table>
                             </div>
 
+                            {/* Payment Section - Only shows if due > 0 */}
                             <div className="bg-slate-50 p-2 rounded-lg border mb-4">
                                 <label className="block text-[10px] font-medium text-slate-700 mb-1">নতুন কিস্তি জমা দিন (তারিখ অটো সেভ হবে)</label>
-                                <div className="flex space-x-1 items-center">
-                                    <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="টাকা" className="flex-1 p-1.5 border rounded text-xs outline-none focus:ring-1 focus:ring-indigo-500" />
-                                    <button onClick={() => { if(payAmount > 0) { handlePayment(farmer, payAmount); setPayAmount(''); } }} className="bg-indigo-600 text-white px-2 py-1.5 rounded text-xs font-semibold">জমা করুন</button>
-                                </div>
+                                {fTotalDue > 0 ? (
+                                    <div className="flex space-x-1 items-center">
+                                        <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="টাকা" className="flex-1 p-1.5 border rounded text-xs outline-none focus:ring-1 focus:ring-indigo-500" />
+                                        <button onClick={() => { if(payAmount > 0) { handlePayment(farmer, payAmount); setPayAmount(''); } }} className="bg-indigo-600 text-white px-2 py-1.5 rounded text-xs font-semibold">জমা করুন</button>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-1">
+                                        <span className="text-emerald-600 text-xs font-bold">সকল বকেয়া পরিশোধিত হয়েছে। নতুন টাকা জমা নেওয়া হবে না।</span>
+                                    </div>
+                                )}
                             </div>
                             <div className="flex space-y-2 md:space-y-0 md:space-x-2 flex-col md:flex-row">
                                 <button onClick={() => addNewYear(farmer)} className="flex-1 bg-slate-700 text-white py-2 rounded-lg text-sm font-semibold hover:bg-slate-800">নতুন সাল যোগ করুন</button>
@@ -488,7 +516,6 @@
 
             const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-            // Calculate payable dynamically for the form
             const payableAmount = (Number(formData.landAmount) / 33) * Number(formData.rate);
 
             const addFarmer = async (e) => {
@@ -504,11 +531,17 @@
                 };
                 await db.collection('farmers').add(newFarmer);
                 setShowAddForm(false);
-                setFormData({ name: '', landAmount: 33, startMonth: 'বৈশাখ', startYear: new Date().getFullYear(), rate: 18000, advance: '' }); // Reset form
+                setFormData({ name: '', landAmount: 33, startMonth: 'বৈশাখ', startYear: new Date().getFullYear(), rate: 18000, advance: '' });
                 showToastMsg("নতুন চাষী যোগ হয়েছে", "success");
             };
 
             const handlePayment = async (farmer, amount) => {
+                const totalDue = farmer.records.reduce((a, r) => a + r.remaining, 0);
+                if (totalDue <= 0) {
+                    showToastMsg("কোনো বকেয়া নেই, টাকা জমা নেওয়া হবে না", "error");
+                    return;
+                }
+
                 let pay = Number(amount);
                 const newRecs = farmer.records.map(r => ({...r})).sort((a,b) => a.year - b.year);
                 for(let rec of newRecs) {
@@ -573,15 +606,25 @@
                 });
             };
 
-            const exportFarmerPDF = (farmer, preview = false) => {
+            const exportFarmerPDF = async (farmer, preview = false) => {
+                showToastMsg("পিডিএফ তৈরি হচ্ছে...", "info");
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
+                
+                const fontBase64 = await fetchBengaliFont();
+                if (fontBase64) {
+                    doc.addFileToVFS("HindSiliguri.ttf", fontBase64);
+                    doc.addFont("HindSiliguri.ttf", "HindSiliguri", "normal");
+                    doc.setFont("HindSiliguri");
+                }
+                
                 doc.setFontSize(18); doc.text("Land Management Report", 14, 15);
                 doc.setFontSize(12); doc.text(`Name: ${farmer.name}`, 14, 25); doc.text(`Land: ${farmer.landAmount} Shotangsho`, 14, 32);
                 doc.autoTable({
                     startY: 40, head: [['Year', 'Rate (33 Sqt)', 'Total', 'Paid', 'Remaining']],
                     body: farmer.records.map(r => [r.year, `${r.rate}`, `${r.total}`, `${r.paid}`, `${r.remaining}`]),
-                    headStyles: { fillColor: [49, 46, 129] }
+                    headStyles: { fillColor: [49, 46, 129], font: "HindSiliguri" },
+                    styles: { font: "HindSiliguri" }
                 });
                 
                 if (farmer.payments && farmer.payments.length > 0) {
@@ -591,7 +634,8 @@
                         startY: finalY + 14,
                         head: [['Date', 'Amount Paid']],
                         body: farmer.payments.map(p => [p.date, `${p.amount} Tk`]),
-                        headStyles: { fillColor: [22, 163, 74] } 
+                        headStyles: { fillColor: [22, 163, 74], font: "HindSiliguri" },
+                        styles: { font: "HindSiliguri" } 
                     });
                 }
                 
@@ -609,12 +653,19 @@
                     message: "সকল চাষীর রিপোর্ট ডাউনলোড হবে।",
                     action: async () => {
                         setPwdModal({ show: false, action: null, message: '' });
-                        showToastMsg("রিপোর্ট তৈরি হচ্ছে...", "info");
+                        showToastMsg("পিডিএফ তৈরি হচ্ছে...", "info");
                         const snap = await db.collection('farmers').where('ownerId', '==', user.uid).get();
                         const allFarmers = snap.docs.map(d => d.data());
                         const { jsPDF } = window.jspdf;
                         const doc = new jsPDF();
                         
+                        const fontBase64 = await fetchBengaliFont();
+                        if (fontBase64) {
+                            doc.addFileToVFS("HindSiliguri.ttf", fontBase64);
+                            doc.addFont("HindSiliguri.ttf", "HindSiliguri", "normal");
+                            doc.setFont("HindSiliguri");
+                        }
+
                         allFarmers.forEach((f, idx) => {
                             if(idx > 0) doc.addPage();
                             doc.setFontSize(18); doc.text("Full Land Management Report", 14, 15);
@@ -622,7 +673,8 @@
                             doc.autoTable({
                                 startY: 40, head: [['Year', 'Rate (33 Sqt)', 'Total', 'Paid', 'Remaining']],
                                 body: f.records.map(r => [r.year, `${r.rate}`, `${r.total}`, `${r.paid}`, `${r.remaining}`]),
-                                headStyles: { fillColor: [49, 46, 129] }
+                                headStyles: { fillColor: [49, 46, 129], font: "HindSiliguri" },
+                                styles: { font: "HindSiliguri" }
                             });
                             
                             if (f.payments && f.payments.length > 0) {
@@ -632,7 +684,8 @@
                                     startY: finalY + 12,
                                     head: [['Date', 'Amount']],
                                     body: f.payments.map(p => [p.date, `${p.amount} Tk`]),
-                                    headStyles: { fillColor: [22, 163, 74] }
+                                    headStyles: { fillColor: [22, 163, 74], font: "HindSiliguri" },
+                                    styles: { font: "HindSiliguri" }
                                 });
                             }
                         });
@@ -737,11 +790,10 @@
                                     
                                     <div>
                                         <label className="text-xs block mb-1">অগ্রিম জমা (টাকা)</label>
-                                        {payableAmount > 0 && (
-                                            <span className="text-[10px] text-rose-500 font-medium block mb-1">payable: {payableAmount.toLocaleString()} ৳</span>
-                                        )}
-                                        {/* Removed 'required' attribute here */}
                                         <input type="number" name="advance" value={formData.advance} onChange={handleChange} className="w-full p-2 border rounded text-sm" />
+                                        {payableAmount > 0 && (
+                                            <span className="text-[10px] text-rose-500 font-medium block mt-1">payable: <span className="font-bold">{payableAmount.toLocaleString()}</span> ৳</span>
+                                        )}
                                     </div>
                                 </div>
                                 <button type="submit" className="mt-3 bg-emerald-600 text-white px-4 py-2 rounded text-sm hover:bg-emerald-700">সেভ করুন</button>
