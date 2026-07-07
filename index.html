@@ -442,7 +442,6 @@
             const [showYearModal, setShowYearModal] = useState(null);
             const [pwdModal, setPwdModal] = useState({ show: false, action: null, message: '' });
             const [showPurgeModal, setShowPurgeModal] = useState(false);
-            const [pdfPreview, setPdfPreview] = useState(null);
             const [toast, setToast] = useState(null);
             const [monthLang, setMonthLang] = useState('bn'); 
             const [formData, setFormData] = useState({ name: '', landAmount: 33, startMonth: 'বৈশাখ', startYear: new Date().getFullYear(), rate: 18000, advance: '' });
@@ -579,6 +578,33 @@
 
             const exportFarmerPDF = async (farmer, preview = false) => {
                 showToastMsg("পিডিএফ তৈরি হচ্ছে...", "info");
+                
+                // Open new tab immediately to bypass popup blockers
+                let newWindow = null;
+                if (preview) {
+                    newWindow = window.open('', '_blank');
+                    if (newWindow) {
+                        newWindow.document.write(`
+                            <html>
+                                <head>
+                                    <title>পিডিএফ প্রিভিউ</title>
+                                    <style>
+                                        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f1f5f9; }
+                                        h2 { color: #475569; }
+                                    </style>
+                                </head>
+                                <body>
+                                    <h2>পিডিএফ তৈরি হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</h2>
+                                </body>
+                            </html>
+                        `);
+                        newWindow.document.close();
+                    } else {
+                        showToastMsg("পপ-আপ ব্লক করা হয়েছে! অনুগ্রহ করে অনুমতি দিন।", "error");
+                        return;
+                    }
+                }
+
                 try {
                     // Ensure fonts are fully loaded before rendering
                     if (document.fonts && document.fonts.ready) {
@@ -656,14 +682,11 @@
                     tempDiv.innerHTML = html;
                     document.body.appendChild(tempDiv);
                     
-                    // Wait a tiny bit for the DOM to paint
                     await new Promise(r => setTimeout(r, 50));
                     
-                    // Optimized canvas generation: scale 1.5 and JPEG for smaller file size and faster generation
                     const canvas = await html2canvas(tempDiv, { scale: 1.5, backgroundColor: '#ffffff', useCORS: true });
                     document.body.removeChild(tempDiv); 
                     
-                    // Use JPEG with 0.7 quality for compression
                     const imgData = canvas.toDataURL('image/jpeg', 0.7);
                     const { jsPDF } = window.jspdf;
                     const pdf = new jsPDF('p', 'mm', 'a4');
@@ -685,10 +708,9 @@
                         heightLeft -= (pdfHeight - 20);
                     }
                     
-                    if (preview) {
-                        // Use Blob URL for preview to bypass browser URI length limits
+                    if (preview && newWindow) {
                         const blobUrl = pdf.output('bloburl');
-                        setPdfPreview({ uri: blobUrl, name: farmer.name, doc: pdf });
+                        newWindow.location.href = blobUrl; // Redirect the new tab to the PDF
                     } else {
                         pdf.save(`${farmer.name}_report.pdf`);
                     }
@@ -696,6 +718,7 @@
                 } catch (error) {
                     console.error(error);
                     showToastMsg("পিডিএফ তৈরিতে ত্রুটি ঘটেছে।", "error");
+                    if (newWindow) newWindow.close();
                 }
             };
 
@@ -707,7 +730,6 @@
                         setPwdModal({ show: false, action: null, message: '' });
                         showToastMsg("পিডিএফ তৈরি হচ্ছে...", "info");
                         try {
-                            // Ensure fonts are fully loaded
                             if (document.fonts && document.fonts.ready) {
                                 await document.fonts.ready;
                                 await document.fonts.load('20px "Hind Siliguri"');
@@ -789,11 +811,9 @@
                             
                             await new Promise(r => setTimeout(r, 50));
                             
-                            // Optimized canvas generation
                             const canvas = await html2canvas(tempDiv, { scale: 1.5, backgroundColor: '#ffffff', useCORS: true });
                             document.body.removeChild(tempDiv);
                             
-                            // Use JPEG compression
                             const imgData = canvas.toDataURL('image/jpeg', 0.7);
                             const { jsPDF } = window.jspdf;
                             const pdf = new jsPDF('p', 'mm', 'a4');
@@ -993,19 +1013,6 @@
                     {showYearModal && <AddYearModal farmer={showYearModal} onClose={() => setShowYearModal(null)} onSave={saveNewYear} />}
                     {pwdModal.show && <PasswordConfirmModal onClose={() => setPwdModal({show: false, action: null, message: ''})} onConfirm={pwdModal.action} showToast={showToastMsg} message={pwdModal.message} />}
                     {showPurgeModal && <PurgeDatabaseModal onClose={() => setShowPurgeModal(false)} onConfirm={handlePurgeConfirm} showToast={showToastMsg} />}
-                    
-                    {pdfPreview && (
-                        <div className="fixed inset-0 bg-black/80 z-[60] flex flex-col p-4">
-                            <div className="bg-white rounded-lg p-3 mb-2 flex justify-between items-center">
-                                <h3 className="font-bold text-sm text-slate-800">{pdfPreview.name} এর পিডিএফ প্রিভিউ</h3>
-                                <div className="flex space-x-2">
-                                    <button onClick={() => pdfPreview.doc.save(`${pdfPreview.name}_report.pdf`)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-semibold">ডাউনলোড করুন</button>
-                                    <button onClick={() => setPdfPreview(null)} className="bg-rose-500 text-white px-4 py-2 rounded-lg text-xs font-semibold">বন্ধ করুন</button>
-                                </div>
-                            </div>
-                            <iframe src={pdfPreview.uri} className="w-full flex-grow bg-white rounded-lg" frameBorder="0" title="PDF Preview"></iframe>
-                        </div>
-                    )}
                 </div>
             );
         };
