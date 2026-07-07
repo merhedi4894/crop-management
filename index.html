@@ -18,9 +18,9 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- PDF Library -->
+    <!-- PDF & HTML2Canvas Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -81,29 +81,6 @@
             let msg = err.message || "একটি ত্রুটি ঘটেছে।";
             msg = msg.replace(/\bhttps?:\/\/\S+/gi, '').replace(/\s+/g, ' ').trim();
             return msg;
-        };
-
-        // Fetch and cache Bengali Font for PDF
-        let cachedBengaliFont = null;
-        const fetchBengaliFont = async () => {
-            if (cachedBengaliFont) return cachedBengaliFont;
-            const url = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/hindsiliguri/HindSiliguri-Regular.ttf';
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error("Font fetch failed");
-                const blob = await response.blob();
-                const base64 = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result.split(',')[1]);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(blob);
-                });
-                cachedBengaliFont = base64;
-                return base64;
-            } catch (e) {
-                console.error("Font fetch error", e);
-                return null;
-            }
         };
 
         // ==========================================
@@ -611,51 +588,107 @@
             const exportFarmerPDF = async (farmer, preview = false) => {
                 showToastMsg("পিডিএফ তৈরি হচ্ছে...", "info");
                 try {
-                    const { jsPDF } = window.jspdf;
-                    const doc = new jsPDF();
+                    const tempDiv = document.createElement('div');
+                    tempDiv.style.position = 'absolute';
+                    tempDiv.style.left = '-9999px';
+                    tempDiv.style.top = '0';
+                    tempDiv.style.width = '750px';
+                    tempDiv.style.padding = '40px';
+                    tempDiv.style.backgroundColor = '#ffffff';
+                    tempDiv.style.fontFamily = "'Hind Siliguri', sans-serif";
                     
-                    const fontBase64 = await fetchBengaliFont();
-                    let tableFont = "helvetica"; // default jsPDF font
+                    let html = `
+                        <div style="text-align: center; margin-bottom: 20px;">
+                            <h1 style="font-size: 28px; color: #1e293b; margin: 0;">Land Management Report</h1>
+                        </div>
+                        <div style="margin-bottom: 20px; padding: 15px; background: #f1f5f9; border-radius: 8px;">
+                            <h2 style="font-size: 20px; color: #0f172a; margin: 0 0 5px 0;">নাম: ${farmer.name}</h2>
+                            <p style="font-size: 14px; color: #475569; margin: 0;">জমি: ${farmer.landAmount} শতাংশ | শুরু: ${farmer.startMonth}, ${farmer.startYear}</p>
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px;">
+                            <thead>
+                                <tr style="background-color: #1e293b; color: white;">
+                                    <th style="border: 1px solid #334155; padding: 10px; text-align: center;">সাল</th>
+                                    <th style="border: 1px solid #334155; padding: 10px; text-align: center;">দর (৩৩ শতাংশ)</th>
+                                    <th style="border: 1px solid #334155; padding: 10px; text-align: center;">মোট</th>
+                                    <th style="border: 1px solid #334155; padding: 10px; text-align: center;">জমা</th>
+                                    <th style="border: 1px solid #334155; padding: 10px; text-align: center;">বকেয়া</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
                     
-                    if (fontBase64) {
-                        doc.addFileToVFS("HindSiliguri.ttf", fontBase64);
-                        doc.addFont("HindSiliguri.ttf", "HindSiliguri", "normal");
-                        doc.setFont("HindSiliguri");
-                        tableFont = "HindSiliguri";
-                    } else {
-                        showToastMsg("বাংলা ফন্ট লোডে সমস্যা, ইংরেজিতে তৈরি হচ্ছে", "error");
-                    }
-                    
-                    doc.setFontSize(18); doc.text("Land Management Report", 14, 15);
-                    doc.setFontSize(12); doc.text(`Name: ${farmer.name}`, 14, 25); doc.text(`Land: ${farmer.landAmount} Shotangsho`, 14, 32);
-                    
-                    doc.autoTable({
-                        startY: 40, 
-                        head: [['Year', 'Rate (33 Sqt)', 'Total', 'Paid', 'Remaining']],
-                        body: farmer.records.map(r => [r.year, `${r.rate}`, `${r.total}`, `${r.paid}`, `${r.remaining}`]),
-                        headStyles: { fillColor: [49, 46, 129], font: tableFont },
-                        styles: { font: tableFont }
+                    farmer.records.forEach(r => {
+                        html += `
+                            <tr>
+                                <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${r.year}</td>
+                                <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${r.rate}</td>
+                                <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${r.total}</td>
+                                <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #059669; font-weight: bold;">${r.paid}</td>
+                                <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #dc2626; font-weight: bold;">${r.remaining}</td>
+                            </tr>
+                        `;
                     });
                     
+                    html += `</tbody></table>`;
+                    
                     if (farmer.payments && farmer.payments.length > 0) {
-                        const finalY = doc.lastAutoTable.finalY || 40;
-                        doc.setFontSize(14); doc.text("Payment History", 14, finalY + 10);
-                        doc.autoTable({
-                            startY: finalY + 14,
-                            head: [['Date', 'Amount Paid']],
-                            body: farmer.payments.map(p => [p.date, `${p.amount} Tk`]),
-                            headStyles: { fillColor: [22, 163, 74], font: tableFont },
-                            styles: { font: tableFont } 
+                        html += `
+                            <h3 style="font-size: 18px; color: #334155; margin-top: 30px; margin-bottom: 10px;">Payment History</h3>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                                <thead>
+                                    <tr style="background-color: #15803d; color: white;">
+                                        <th style="border: 1px solid #334155; padding: 10px; text-align: center;">তারিখ</th>
+                                        <th style="border: 1px solid #334155; padding: 10px; text-align: center;">পরিমাণ</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                        `;
+                        farmer.payments.forEach(p => {
+                            html += `
+                                <tr>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${p.date}</td>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #059669;">${p.amount} ৳</td>
+                                </tr>
+                            `;
                         });
+                        html += `</tbody></table>`;
+                    }
+                    
+                    tempDiv.innerHTML = html;
+                    document.body.appendChild(tempDiv);
+                    
+                    const canvas = await html2canvas(tempDiv, { scale: 2, backgroundColor: '#ffffff' });
+                    document.body.removeChild(tempDiv); 
+                    
+                    const imgData = canvas.toDataURL('image/png');
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    const pdfWidth = pdf.internal.pageSize.getWidth();
+                    const pdfHeight = pdf.internal.pageSize.getHeight();
+                    const imgWidth = pdfWidth - 20;
+                    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                    
+                    let heightLeft = imgHeight;
+                    let position = 10;
+                    
+                    pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                    heightLeft -= (pdfHeight - 20);
+                    
+                    while (heightLeft > 0) {
+                        position = heightLeft - imgHeight + 10;
+                        pdf.addPage();
+                        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                        heightLeft -= (pdfHeight - 20);
                     }
                     
                     if (preview) {
-                        const dataUri = doc.output('datauristring');
-                        setPdfPreview({ uri: dataUri, name: farmer.name, doc: doc });
+                        const dataUri = pdf.output('datauristring');
+                        setPdfPreview({ uri: dataUri, name: farmer.name, doc: pdf });
                     } else {
-                        doc.save(`${farmer.name}_report.pdf`);
+                        pdf.save(`${farmer.name}_report.pdf`);
                     }
-                    setToast(null); // Clear loading toast on success
+                    setToast(null);
                 } catch (error) {
                     console.error(error);
                     showToastMsg("পিডিএফ তৈরিতে ত্রুটি ঘটেছে।", "error");
@@ -672,45 +705,104 @@
                         try {
                             const snap = await db.collection('farmers').where('ownerId', '==', user.uid).get();
                             const allFarmers = snap.docs.map(d => d.data());
-                            const { jsPDF } = window.jspdf;
-                            const doc = new jsPDF();
                             
-                            const fontBase64 = await fetchBengaliFont();
-                            let tableFont = "helvetica"; // default
-                            if (fontBase64) {
-                                doc.addFileToVFS("HindSiliguri.ttf", fontBase64);
-                                doc.addFont("HindSiliguri.ttf", "HindSiliguri", "normal");
-                                doc.setFont("HindSiliguri");
-                                tableFont = "HindSiliguri";
-                            } else {
-                                showToastMsg("বাংলা ফন্ট লোডে সমস্যা, ইংরেজিতে তৈরি হচ্ছে", "error");
-                            }
-
-                            allFarmers.forEach((f, idx) => {
-                                if(idx > 0) doc.addPage();
-                                doc.setFontSize(18); doc.text("Full Land Management Report", 14, 15);
-                                doc.setFontSize(12); doc.text(`Farmer: ${f.name} (${f.status})`, 14, 25); doc.text(`Land: ${f.landAmount} Shotangsho`, 14, 32);
-                                doc.autoTable({
-                                    startY: 40, head: [['Year', 'Rate (33 Sqt)', 'Total', 'Paid', 'Remaining']],
-                                    body: f.records.map(r => [r.year, `${r.rate}`, `${r.total}`, `${r.paid}`, `${r.remaining}`]),
-                                    headStyles: { fillColor: [49, 46, 129], font: tableFont },
-                                    styles: { font: tableFont }
+                            const tempDiv = document.createElement('div');
+                            tempDiv.style.position = 'absolute';
+                            tempDiv.style.left = '-9999px';
+                            tempDiv.style.top = '0';
+                            tempDiv.style.width = '750px';
+                            tempDiv.style.padding = '40px';
+                            tempDiv.style.backgroundColor = '#ffffff';
+                            tempDiv.style.fontFamily = "'Hind Siliguri', sans-serif";
+                            
+                            let html = `<h1 style="text-align: center; font-size: 28px; color: #1e293b; margin-bottom: 40px;">Full Land Management Report</h1>`;
+                            
+                            allFarmers.forEach(f => {
+                                html += `
+                                    <div style="margin-bottom: 50px; page-break-after: always;">
+                                        <div style="margin-bottom: 15px; padding: 15px; background: #f1f5f9; border-radius: 8px;">
+                                            <h2 style="font-size: 20px; color: #0f172a; margin: 0 0 5px 0;">নাম: ${f.name} (${f.status})</h2>
+                                            <p style="font-size: 14px; color: #475569; margin: 0;">জমি: ${f.landAmount} শতাংশ | শুরু: ${f.startMonth}, ${f.startYear}</p>
+                                        </div>
+                                        <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px;">
+                                            <thead>
+                                                <tr style="background-color: #1e293b; color: white;">
+                                                    <th style="border: 1px solid #334155; padding: 8px;">সাল</th>
+                                                    <th style="border: 1px solid #334155; padding: 8px;">দর (৩৩ শতাংশ)</th>
+                                                    <th style="border: 1px solid #334155; padding: 8px;">মোট</th>
+                                                    <th style="border: 1px solid #334155; padding: 8px;">জমা</th>
+                                                    <th style="border: 1px solid #334155; padding: 8px;">বকেয়া</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                `;
+                                f.records.forEach(r => {
+                                    html += `
+                                        <tr>
+                                            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${r.year}</td>
+                                            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${r.rate}</td>
+                                            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${r.total}</td>
+                                            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #059669; font-weight: bold;">${r.paid}</td>
+                                            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #dc2626; font-weight: bold;">${r.remaining}</td>
+                                        </tr>
+                                    `;
                                 });
+                                html += `</tbody></table>`;
                                 
                                 if (f.payments && f.payments.length > 0) {
-                                    const finalY = doc.lastAutoTable.finalY || 40;
-                                    doc.setFontSize(12); doc.text("Payment History", 14, finalY + 8);
-                                    doc.autoTable({
-                                        startY: finalY + 12,
-                                        head: [['Date', 'Amount']],
-                                        body: f.payments.map(p => [p.date, `${p.amount} Tk`]),
-                                        headStyles: { fillColor: [22, 163, 74], font: tableFont },
-                                        styles: { font: tableFont }
+                                    html += `
+                                        <h3 style="font-size: 16px; color: #334155; margin-top: 20px; margin-bottom: 10px;">Payment History</h3>
+                                        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                                            <thead>
+                                                <tr style="background-color: #15803d; color: white;">
+                                                    <th style="border: 1px solid #334155; padding: 8px;">তারিখ</th>
+                                                    <th style="border: 1px solid #334155; padding: 8px;">পরিমাণ</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                    `;
+                                    f.payments.forEach(p => {
+                                        html += `
+                                            <tr>
+                                                <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${p.date}</td>
+                                                <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #059669;">${p.amount} ৳</td>
+                                            </tr>
+                                        `;
                                     });
+                                    html += `</tbody></table>`;
                                 }
+                                html += `</div>`;
                             });
-                            doc.save(`All_Farmers_Report.pdf`);
-                            setToast(null); // Clear loading toast
+                            
+                            tempDiv.innerHTML = html;
+                            document.body.appendChild(tempDiv);
+                            
+                            const canvas = await html2canvas(tempDiv, { scale: 2, backgroundColor: '#ffffff' });
+                            document.body.removeChild(tempDiv);
+                            
+                            const imgData = canvas.toDataURL('image/png');
+                            const { jsPDF } = window.jspdf;
+                            const pdf = new jsPDF('p', 'mm', 'a4');
+                            const pdfWidth = pdf.internal.pageSize.getWidth();
+                            const pdfHeight = pdf.internal.pageSize.getHeight();
+                            const imgWidth = pdfWidth - 20;
+                            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                            
+                            let heightLeft = imgHeight;
+                            let position = 10;
+                            
+                            pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                            heightLeft -= (pdfHeight - 20);
+                            
+                            while (heightLeft > 0) {
+                                position = heightLeft - imgHeight + 10;
+                                pdf.addPage();
+                                pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+                                heightLeft -= (pdfHeight - 20);
+                            }
+                            
+                            pdf.save(`All_Farmers_Report.pdf`);
+                            setToast(null);
                         } catch (error) {
                             console.error(error);
                             showToastMsg("পিডিএফ তৈরিতে ত্রুটি ঘটেছে।", "error");
