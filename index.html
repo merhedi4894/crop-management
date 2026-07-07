@@ -30,16 +30,11 @@
     <style>
         body { font-family: 'Hind Siliguri', sans-serif; }
         
-        /* Beautiful Colorful Wheel Spinner */
-        .ring-spinner { width: 80px; height: 80px; position: relative; }
-        .ring-spinner div { position: absolute; width: 100%; height: 100%; border-radius: 50%; border: 8px solid transparent; }
-        .ring-spinner div:nth-child(1) { border-top-color: #FF5733; animation: spin 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite; }
-        .ring-spinner div:nth-child(2) { border-right-color: #33FF57; animation: spin 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite; animation-delay: -0.25s; }
-        .ring-spinner div:nth-child(3) { border-bottom-color: #3357FF; animation: spin 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite; animation-delay: -0.5s; }
-        .ring-spinner div:nth-child(4) { border-left-color: #F033FF; animation: spin 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite; animation-delay: -0.75s; }
-        .ring-center { position: absolute; top: 50%; left: 50%; width: 15px; height: 15px; background: #FFBD33; border-radius: 50%; transform: translate(-50%, -50%); animation: pulse 1.2s ease-in-out infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes pulse { 0%, 100% { transform: scale(0.5) translate(-50%, -50%); opacity: 0.5; } 50% { transform: scale(1) translate(-50%, -50%); opacity: 1; } }
+        /* Smart Dual Ring Spinner */
+        .smart-spinner { width: 70px; height: 70px; border-radius: 50%; border: 5px solid rgba(255, 255, 255, 0.1); border-top-color: #6366f1; border-right-color: #6366f1; animation: spin 0.8s linear infinite; position: relative; }
+        .smart-spinner::after { content: ''; position: absolute; top: 8px; left: 8px; right: 8px; bottom: 8px; border-radius: 50%; border: 5px solid transparent; border-bottom-color: #10b981; border-left-color: #10b981; animation: spin-reverse 1.2s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes spin-reverse { to { transform: rotate(-360deg); } }
 
         .btn-spinner { border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; width: 16px; height: 16px; animation: btn-spin 1s linear infinite; display: inline-block; }
         @keyframes btn-spin { to { transform: rotate(360deg); } }
@@ -89,11 +84,8 @@
         const ColorfulSpinner = () => {
             return (
                 <div className="flex flex-col justify-center items-center h-screen bg-slate-900">
-                    <div className="ring-spinner">
-                        <div></div><div></div><div></div><div></div>
-                        <div className="ring-center"></div>
-                    </div>
-                    <p className="mt-6 text-slate-400">সিস্টেম লোড হচ্ছে...</p>
+                    <div className="smart-spinner"></div>
+                    <p className="mt-8 text-slate-400 font-medium tracking-wider">সিস্টেম লোড হচ্ছে...</p>
                 </div>
             );
         };
@@ -588,6 +580,12 @@
             const exportFarmerPDF = async (farmer, preview = false) => {
                 showToastMsg("পিডিএফ তৈরি হচ্ছে...", "info");
                 try {
+                    // Ensure fonts are fully loaded before rendering
+                    if (document.fonts && document.fonts.ready) {
+                        await document.fonts.ready;
+                        await document.fonts.load('20px "Hind Siliguri"');
+                    }
+
                     const tempDiv = document.createElement('div');
                     tempDiv.style.position = 'absolute';
                     tempDiv.style.left = '-9999px';
@@ -658,6 +656,9 @@
                     tempDiv.innerHTML = html;
                     document.body.appendChild(tempDiv);
                     
+                    // Wait a tiny bit for the DOM to paint
+                    await new Promise(r => setTimeout(r, 50));
+                    
                     const canvas = await html2canvas(tempDiv, { scale: 2, backgroundColor: '#ffffff' });
                     document.body.removeChild(tempDiv); 
                     
@@ -703,6 +704,12 @@
                         setPwdModal({ show: false, action: null, message: '' });
                         showToastMsg("পিডিএফ তৈরি হচ্ছে...", "info");
                         try {
+                            // Ensure fonts are fully loaded
+                            if (document.fonts && document.fonts.ready) {
+                                await document.fonts.ready;
+                                await document.fonts.load('20px "Hind Siliguri"');
+                            }
+
                             const snap = await db.collection('farmers').where('ownerId', '==', user.uid).get();
                             const allFarmers = snap.docs.map(d => d.data());
                             
@@ -776,6 +783,8 @@
                             
                             tempDiv.innerHTML = html;
                             document.body.appendChild(tempDiv);
+                            
+                            await new Promise(r => setTimeout(r, 50));
                             
                             const canvas = await html2canvas(tempDiv, { scale: 2, backgroundColor: '#ffffff' });
                             document.body.removeChild(tempDiv);
