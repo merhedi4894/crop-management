@@ -18,9 +18,9 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-    <!-- PDF & HTML2Canvas Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- PDFMake Library (Pure Text PDF, Small Size, Bengali Support) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -76,6 +76,32 @@
             let msg = err.message || "একটি ত্রুটি ঘটেছে।";
             msg = msg.replace(/\bhttps?:\/\/\S+/gi, '').replace(/\s+/g, ' ').trim();
             return msg;
+        };
+
+        // PDFMake Bengali Font Loader
+        let pdfMakeReady = false;
+        const preparePdfMake = async () => {
+            if (pdfMakeReady) return;
+            if (window.pdfMake && !pdfMake.vfs['HindSiliguri.ttf']) {
+                const url = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/hindsiliguri/HindSiliguri-Regular.ttf';
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const base64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                    reader.readAsDataURL(blob);
+                });
+                pdfMake.vfs['HindSiliguri.ttf'] = base64;
+                pdfMake.fonts = {
+                    HindSiliguri: {
+                        normal: 'HindSiliguri.ttf',
+                        bold: 'HindSiliguri.ttf',
+                        italics: 'HindSiliguri.ttf',
+                        bolditalics: 'HindSiliguri.ttf'
+                    }
+                };
+                pdfMakeReady = true;
+            }
         };
 
         // ==========================================
@@ -249,7 +275,7 @@
                         <h2 className="text-3xl font-bold text-center text-slate-800 mb-6">পাসওয়ার্ড রিসেট</h2>
                         <form onSubmit={handleReset} className="space-y-5">
                             <div><label className="block text-sm font-medium text-slate-700 mb-1.5">নিবন্ধিত ইমেইল</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500" /></div>
-                            <button type="submit" disabled={loading} className={`w-full py-3 rounded-lg text-white font-semibold flex justify-center items-center ${loading ? 'bg-amber-400' : 'bg-amber-500 hover:bg-amber-600'}`}>
+                            <button type="submit" disabled={loading) className={`w-full py-3 rounded-lg text-white font-semibold flex justify-center items-center ${loading ? 'bg-amber-400' : 'bg-amber-500 hover:bg-amber-600'}`}>
                                 {loading ? <span className="btn-spinner mr-2"></span> : 'রিসেট লিংক পাঠান'}
                             </button>
                         </form>
@@ -411,7 +437,6 @@
                                 </table>
                             </div>
 
-                            {/* Payment Section - Only shows if due > 0 */}
                             <div className="bg-slate-50 p-2 rounded-lg border mb-4">
                                 <label className="block text-[10px] font-medium text-slate-700 mb-1">নতুন কিস্তি জমা দিন (তারিখ অটো সেভ হবে)</label>
                                 {fTotalDue > 0 ? (
@@ -576,149 +601,97 @@
                 });
             };
 
-            const exportFarmerPDF = async (farmer, preview = false) => {
-                showToastMsg("পিডিএফ তৈরি হচ্ছে...", "info");
-                
-                // Open new tab immediately to bypass popup blockers
-                let newWindow = null;
-                if (preview) {
-                    newWindow = window.open('', '_blank');
-                    if (newWindow) {
-                        newWindow.document.write(`
-                            <html>
-                                <head>
-                                    <title>পিডিএফ প্রিভিউ</title>
-                                    <style>
-                                        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f1f5f9; }
-                                        h2 { color: #475569; }
-                                    </style>
-                                </head>
-                                <body>
-                                    <h2>পিডিএফ তৈরি হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</h2>
-                                </body>
-                            </html>
-                        `);
-                        newWindow.document.close();
-                    } else {
-                        showToastMsg("পপ-আপ ব্লক করা হয়েছে! অনুগ্রহ করে অনুমতি দিন।", "error");
-                        return;
-                    }
+            const openPdfPreview = (blob, fileName) => {
+                const url = URL.createObjectURL(blob);
+                const newWindow = window.open('', '_blank');
+                if (newWindow) {
+                    newWindow.document.write(`
+                        <html>
+                            <head>
+                                <title>পিডিএফ প্রিভিউ</title>
+                                <style>
+                                    body { margin: 0; font-family: 'Hind Siliguri', sans-serif; display: flex; flex-direction: column; height: 100vh; background: #f1f5f9; }
+                                    .header { background: #1e293b; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+                                    .title { color: white; font-size: 16px; font-weight: bold; }
+                                    .btn { background: #4f46e5; color: white; padding: 8px 16px; text-decoration: none; border-radius: 6px; font-weight: bold; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
+                                    .btn:hover { background: #4338ca; }
+                                    iframe { flex-grow: 1; border: none; width: 100%; background: white; }
+                                </style>
+                                <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+                            </head>
+                            <body>
+                                <div class="header">
+                                    <span class="title">পিডিএফ প্রিভিউ</span>
+                                    <a href="${url}" download="${fileName}.pdf" class="btn">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                        ডাউনলোড করুন
+                                    </a>
+                                </div>
+                                <iframe src="${url}"></iframe>
+                            </body>
+                        </html>
+                    `);
+                    newWindow.document.close();
+                } else {
+                    showToastMsg("পপ-আপ ব্লক করা হয়েছে! অনুগ্রহ করে অনুমতি দিন।", "error");
                 }
+            };
 
+            const exportFarmerPDF = async (farmer) => {
+                showToastMsg("পিডিএফ তৈরি হচ্ছে...", "info");
                 try {
-                    // Ensure fonts are fully loaded before rendering
-                    if (document.fonts && document.fonts.ready) {
-                        await document.fonts.ready;
-                        await document.fonts.load('20px "Hind Siliguri"');
+                    await preparePdfMake();
+                    const body = [
+                        [{ text: 'সাল', style: 'tableHeader' }, { text: 'দর (৩৩ শতাংশ)', style: 'tableHeader' }, { text: 'মোট', style: 'tableHeader' }, { text: 'জমা', style: 'tableHeader' }, { text: 'বকেয়া', style: 'tableHeader' }]
+                    ];
+                    farmer.records.forEach(r => {
+                        body.push([
+                            r.year.toString(),
+                            r.rate.toString(),
+                            r.total.toString(),
+                            { text: r.paid.toString(), color: '#059669', bold: true },
+                            { text: r.remaining.toString(), color: '#dc2626', bold: true }
+                        ]);
+                    });
+
+                    let content = [
+                        { text: 'Land Management Report', style: 'header', alignment: 'center', margin: [0, 0, 0, 10] },
+                        { text: `নাম: ${farmer.name}`, style: 'subheader', margin: [0, 0, 0, 2] },
+                        { text: `জমি: ${farmer.landAmount} শতাংশ | শুরু: ${farmer.startMonth}, ${farmer.startYear}`, style: 'small', margin: [0, 0, 0, 10] },
+                        {
+                            table: { widths: ['auto', '*', '*', '*', '*'], body: body },
+                            layout: { fillColor: (i) => (i === 0 ? '#1e293b' : null), hLineColor: () => '#cbd5e1', vLineColor: () => '#cbd5e1' }
+                        }
+                    ];
+
+                    if (farmer.payments && farmer.payments.length > 0) {
+                        const payBody = [[{ text: 'তারিখ', style: 'tableHeader' }, { text: 'পরিমাণ', style: 'tableHeader' }]];
+                        farmer.payments.forEach(p => payBody.push([p.date, { text: `${p.amount} ৳`, color: '#059669' }]));
+                        content.push({ text: 'Payment History', style: 'subheader', margin: [0, 20, 0, 5] });
+                        content.push({
+                            table: { widths: ['*', '*'], body: payBody },
+                            layout: { fillColor: (i) => (i === 0 ? '#15803d' : null), hLineColor: () => '#cbd5e1', vLineColor: () => '#cbd5e1' }
+                        });
                     }
 
-                    const tempDiv = document.createElement('div');
-                    tempDiv.style.position = 'absolute';
-                    tempDiv.style.left = '-9999px';
-                    tempDiv.style.top = '0';
-                    tempDiv.style.width = '750px';
-                    tempDiv.style.padding = '40px';
-                    tempDiv.style.backgroundColor = '#ffffff';
-                    tempDiv.style.fontFamily = "'Hind Siliguri', sans-serif";
-                    
-                    let html = `
-                        <div style="text-align: center; margin-bottom: 20px;">
-                            <h1 style="font-size: 28px; color: #1e293b; margin: 0;">Land Management Report</h1>
-                        </div>
-                        <div style="margin-bottom: 20px; padding: 15px; background: #f1f5f9; border-radius: 8px;">
-                            <h2 style="font-size: 20px; color: #0f172a; margin: 0 0 5px 0;">নাম: ${farmer.name}</h2>
-                            <p style="font-size: 14px; color: #475569; margin: 0;">জমি: ${farmer.landAmount} শতাংশ | শুরু: ${farmer.startMonth}, ${farmer.startYear}</p>
-                        </div>
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px;">
-                            <thead>
-                                <tr style="background-color: #1e293b; color: white;">
-                                    <th style="border: 1px solid #334155; padding: 10px; text-align: center;">সাল</th>
-                                    <th style="border: 1px solid #334155; padding: 10px; text-align: center;">দর (৩৩ শতাংশ)</th>
-                                    <th style="border: 1px solid #334155; padding: 10px; text-align: center;">মোট</th>
-                                    <th style="border: 1px solid #334155; padding: 10px; text-align: center;">জমা</th>
-                                    <th style="border: 1px solid #334155; padding: 10px; text-align: center;">বকেয়া</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                    `;
-                    
-                    farmer.records.forEach(r => {
-                        html += `
-                            <tr>
-                                <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${r.year}</td>
-                                <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${r.rate}</td>
-                                <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${r.total}</td>
-                                <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #059669; font-weight: bold;">${r.paid}</td>
-                                <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #dc2626; font-weight: bold;">${r.remaining}</td>
-                            </tr>
-                        `;
+                    const docDefinition = {
+                        content: content,
+                        styles: {
+                            header: { fontSize: 18, bold: true },
+                            subheader: { fontSize: 14, bold: true },
+                            small: { fontSize: 10, color: '#475569' },
+                            tableHeader: { bold: true, fontSize: 11, color: 'white', alignment: 'center' }
+                        },
+                        defaultStyle: { font: 'HindSiliguri', fontSize: 11 }
+                    };
+
+                    pdfMake.createPdf(docDefinition).getBlob((blob) => {
+                        openPdfPreview(blob, `${farmer.name}_report`);
+                        setToast(null);
                     });
-                    
-                    html += `</tbody></table>`;
-                    
-                    if (farmer.payments && farmer.payments.length > 0) {
-                        html += `
-                            <h3 style="font-size: 18px; color: #334155; margin-top: 30px; margin-bottom: 10px;">Payment History</h3>
-                            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                                <thead>
-                                    <tr style="background-color: #15803d; color: white;">
-                                        <th style="border: 1px solid #334155; padding: 10px; text-align: center;">তারিখ</th>
-                                        <th style="border: 1px solid #334155; padding: 10px; text-align: center;">পরিমাণ</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                        `;
-                        farmer.payments.forEach(p => {
-                            html += `
-                                <tr>
-                                    <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${p.date}</td>
-                                    <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #059669;">${p.amount} ৳</td>
-                                </tr>
-                            `;
-                        });
-                        html += `</tbody></table>`;
-                    }
-                    
-                    tempDiv.innerHTML = html;
-                    document.body.appendChild(tempDiv);
-                    
-                    await new Promise(r => setTimeout(r, 50));
-                    
-                    const canvas = await html2canvas(tempDiv, { scale: 1.5, backgroundColor: '#ffffff', useCORS: true });
-                    document.body.removeChild(tempDiv); 
-                    
-                    const imgData = canvas.toDataURL('image/jpeg', 0.7);
-                    const { jsPDF } = window.jspdf;
-                    const pdf = new jsPDF('p', 'mm', 'a4');
-                    const pdfWidth = pdf.internal.pageSize.getWidth();
-                    const pdfHeight = pdf.internal.pageSize.getHeight();
-                    const imgWidth = pdfWidth - 20;
-                    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                    
-                    let heightLeft = imgHeight;
-                    let position = 10;
-                    
-                    pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight);
-                    heightLeft -= (pdfHeight - 20);
-                    
-                    while (heightLeft > 0) {
-                        position = heightLeft - imgHeight + 10;
-                        pdf.addPage();
-                        pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight);
-                        heightLeft -= (pdfHeight - 20);
-                    }
-                    
-                    if (preview && newWindow) {
-                        const blobUrl = pdf.output('bloburl');
-                        newWindow.location.href = blobUrl; // Redirect the new tab to the PDF
-                    } else {
-                        pdf.save(`${farmer.name}_report.pdf`);
-                    }
-                    setToast(null);
                 } catch (error) {
                     console.error(error);
                     showToastMsg("পিডিএফ তৈরিতে ত্রুটি ঘটেছে।", "error");
-                    if (newWindow) newWindow.close();
                 }
             };
 
@@ -730,113 +703,51 @@
                         setPwdModal({ show: false, action: null, message: '' });
                         showToastMsg("পিডিএফ তৈরি হচ্ছে...", "info");
                         try {
-                            if (document.fonts && document.fonts.ready) {
-                                await document.fonts.ready;
-                                await document.fonts.load('20px "Hind Siliguri"');
-                            }
-
+                            await preparePdfMake();
                             const snap = await db.collection('farmers').where('ownerId', '==', user.uid).get();
                             const allFarmers = snap.docs.map(d => d.data());
-                            
-                            const tempDiv = document.createElement('div');
-                            tempDiv.style.position = 'absolute';
-                            tempDiv.style.left = '-9999px';
-                            tempDiv.style.top = '0';
-                            tempDiv.style.width = '750px';
-                            tempDiv.style.padding = '40px';
-                            tempDiv.style.backgroundColor = '#ffffff';
-                            tempDiv.style.fontFamily = "'Hind Siliguri', sans-serif";
-                            
-                            let html = `<h1 style="text-align: center; font-size: 28px; color: #1e293b; margin-bottom: 40px;">Full Land Management Report</h1>`;
-                            
+
+                            let content = [{ text: 'Full Land Management Report', style: 'header', alignment: 'center', margin: [0, 0, 0, 20] }];
+
                             allFarmers.forEach(f => {
-                                html += `
-                                    <div style="margin-bottom: 50px; page-break-after: always;">
-                                        <div style="margin-bottom: 15px; padding: 15px; background: #f1f5f9; border-radius: 8px;">
-                                            <h2 style="font-size: 20px; color: #0f172a; margin: 0 0 5px 0;">নাম: ${f.name} (${f.status})</h2>
-                                            <p style="font-size: 14px; color: #475569; margin: 0;">জমি: ${f.landAmount} শতাংশ | শুরু: ${f.startMonth}, ${f.startYear}</p>
-                                        </div>
-                                        <table style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px;">
-                                            <thead>
-                                                <tr style="background-color: #1e293b; color: white;">
-                                                    <th style="border: 1px solid #334155; padding: 8px;">সাল</th>
-                                                    <th style="border: 1px solid #334155; padding: 8px;">দর (৩৩ শতাংশ)</th>
-                                                    <th style="border: 1px solid #334155; padding: 8px;">মোট</th>
-                                                    <th style="border: 1px solid #334155; padding: 8px;">জমা</th>
-                                                    <th style="border: 1px solid #334155; padding: 8px;">বকেয়া</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                `;
+                                content.push({ text: `নাম: ${f.name} (${f.status})`, style: 'subheader', margin: [0, 10, 0, 2] });
+                                content.push({ text: `জমি: ${f.landAmount} শতাংশ | শুরু: ${f.startMonth}, ${f.startYear}`, style: 'small', margin: [0, 0, 0, 5] });
+                                const body = [[{ text: 'সাল', style: 'tableHeader' }, { text: 'দর', style: 'tableHeader' }, { text: 'মোট', style: 'tableHeader' }, { text: 'জমা', style: 'tableHeader' }, { text: 'বকেয়া', style: 'tableHeader' }]];
                                 f.records.forEach(r => {
-                                    html += `
-                                        <tr>
-                                            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${r.year}</td>
-                                            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${r.rate}</td>
-                                            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${r.total}</td>
-                                            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #059669; font-weight: bold;">${r.paid}</td>
-                                            <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #dc2626; font-weight: bold;">${r.remaining}</td>
-                                        </tr>
-                                    `;
+                                    body.push([r.year.toString(), r.rate.toString(), r.total.toString(), { text: r.paid.toString(), color: '#059669', bold: true }, { text: r.remaining.toString(), color: '#dc2626', bold: true }]);
                                 });
-                                html += `</tbody></table>`;
-                                
+                                content.push({
+                                    table: { widths: ['auto', '*', '*', '*', '*'], body: body },
+                                    layout: { fillColor: (i) => (i === 0 ? '#1e293b' : null), hLineColor: () => '#cbd5e1', vLineColor: () => '#cbd5e1' }
+                                });
+
                                 if (f.payments && f.payments.length > 0) {
-                                    html += `
-                                        <h3 style="font-size: 16px; color: #334155; margin-top: 20px; margin-bottom: 10px;">Payment History</h3>
-                                        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                                            <thead>
-                                                <tr style="background-color: #15803d; color: white;">
-                                                    <th style="border: 1px solid #334155; padding: 8px;">তারিখ</th>
-                                                    <th style="border: 1px solid #334155; padding: 8px;">পরিমাণ</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                    `;
-                                    f.payments.forEach(p => {
-                                        html += `
-                                            <tr>
-                                                <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${p.date}</td>
-                                                <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: #059669;">${p.amount} ৳</td>
-                                            </tr>
-                                        `;
+                                    const payBody = [[{ text: 'তারিখ', style: 'tableHeader' }, { text: 'পরিমাণ', style: 'tableHeader' }]];
+                                    f.payments.forEach(p => payBody.push([p.date, { text: `${p.amount} ৳`, color: '#059669' }]));
+                                    content.push({ text: 'Payment History', style: 'small', margin: [0, 5, 0, 2] });
+                                    content.push({
+                                        table: { widths: ['*', '*'], body: payBody },
+                                        layout: { fillColor: (i) => (i === 0 ? '#15803d' : null), hLineColor: () => '#cbd5e1', vLineColor: () => '#cbd5e1' }
                                     });
-                                    html += `</tbody></table>`;
                                 }
-                                html += `</div>`;
+                                content.push({ text: '', pageBreak: 'after' });
                             });
-                            
-                            tempDiv.innerHTML = html;
-                            document.body.appendChild(tempDiv);
-                            
-                            await new Promise(r => setTimeout(r, 50));
-                            
-                            const canvas = await html2canvas(tempDiv, { scale: 1.5, backgroundColor: '#ffffff', useCORS: true });
-                            document.body.removeChild(tempDiv);
-                            
-                            const imgData = canvas.toDataURL('image/jpeg', 0.7);
-                            const { jsPDF } = window.jspdf;
-                            const pdf = new jsPDF('p', 'mm', 'a4');
-                            const pdfWidth = pdf.internal.pageSize.getWidth();
-                            const pdfHeight = pdf.internal.pageSize.getHeight();
-                            const imgWidth = pdfWidth - 20;
-                            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                            
-                            let heightLeft = imgHeight;
-                            let position = 10;
-                            
-                            pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight);
-                            heightLeft -= (pdfHeight - 20);
-                            
-                            while (heightLeft > 0) {
-                                position = heightLeft - imgHeight + 10;
-                                pdf.addPage();
-                                pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight);
-                                heightLeft -= (pdfHeight - 20);
-                            }
-                            
-                            pdf.save(`All_Farmers_Report.pdf`);
-                            setToast(null);
+
+                            const docDefinition = {
+                                content: content,
+                                styles: {
+                                    header: { fontSize: 18, bold: true },
+                                    subheader: { fontSize: 14, bold: true },
+                                    small: { fontSize: 10, color: '#475569' },
+                                    tableHeader: { bold: true, fontSize: 10, color: 'white', alignment: 'center' }
+                                },
+                                defaultStyle: { font: 'HindSiliguri', fontSize: 10 }
+                            };
+
+                            pdfMake.createPdf(docDefinition).getBlob((blob) => {
+                                openPdfPreview(blob, `All_Farmers_Report`);
+                                setToast(null);
+                            });
                         } catch (error) {
                             console.error(error);
                             showToastMsg("পিডিএফ তৈরিতে ত্রুটি ঘটেছে।", "error");
@@ -970,7 +881,7 @@
                                                         <button onClick={() => setSelectedFarmer(f)} className="bg-indigo-100 text-indigo-700 p-2 rounded-lg" title="বিস্তারিত দেখুন">
                                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                                         </button>
-                                                        <button onClick={() => exportFarmerPDF(f, true)} className="bg-rose-100 text-rose-700 p-2 rounded-lg" title="পিডিএফ ডাউনলোড করুন">
+                                                        <button onClick={() => exportFarmerPDF(f)} className="bg-rose-100 text-rose-700 p-2 rounded-lg" title="পিডিএফ ডাউনলোড করুন">
                                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                                                         </button>
                                                     </div>
@@ -997,7 +908,7 @@
                                             <button onClick={() => setSelectedFarmer(f)} className="text-indigo-600 p-1.5 rounded hover:bg-indigo-50" title="বিস্তারিত">
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                             </button>
-                                            <button onClick={() => exportFarmerPDF(f, true)} className="text-rose-600 p-1.5 rounded hover:bg-rose-50" title="পিডিএফ">
+                                            <button onClick={() => exportFarmerPDF(f)} className="text-rose-600 p-1.5 rounded hover:bg-rose-50" title="পিডিএফ">
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                                             </button>
                                         </div>
