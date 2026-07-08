@@ -61,7 +61,6 @@
            storageBucket: "crop-management-116fe.firebasestorage.app",
            messagingSenderId: "1040293009053",
            appId: "1:1040293009053:web:7b68b487297b534048a674",
-
         };
 
         let auth, db;
@@ -898,16 +897,12 @@
                     {pwdModal.show && <PasswordConfirmModal onClose={() => setPwdModal({show: false, action: null, message: ''})} onConfirm={pwdModal.action} showToast={showToastMsg} message={pwdModal.message} />}
                     {showPurgeModal && <PurgeDatabaseModal onClose={() => setShowPurgeModal(false)} onConfirm={handlePurgeConfirm} showToast={showToastMsg} />}
                     
-                    {/* PDF Preview Modal (Same Page with Open Button) */}
+                    {/* PDF Preview Modal */}
                     {pdfPreview && (
                         <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col p-4">
                             <div className="bg-white rounded-lg p-3 mb-2 flex justify-between items-center shadow-lg">
                                 <h3 className="font-bold text-sm text-slate-800 hidden sm:block">পিডিএফ প্রিভিউ</h3>
                                 <div className="flex space-x-2 ml-auto">
-                                    <a href={pdfPreview.url} target="_blank" rel="noopener noreferrer" className="bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center space-x-1 hover:bg-emerald-600">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                                        <span>Open</span>
-                                    </a>
                                     <a href={pdfPreview.url} download={`${pdfPreview.name}.pdf`} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center space-x-1 hover:bg-indigo-700">
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                                         <span>ডাউনলোড করুন</span>
