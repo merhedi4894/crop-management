@@ -30,11 +30,9 @@
     <style>
         body { font-family: 'Hind Siliguri', sans-serif; }
         
-        /* Smart Dual Ring Spinner */
-        .smart-spinner { width: 70px; height: 70px; border-radius: 50%; border: 5px solid rgba(255, 255, 255, 0.1); border-top-color: #6366f1; border-right-color: #6366f1; animation: spin 0.8s linear infinite; position: relative; }
-        .smart-spinner::after { content: ''; position: absolute; top: 8px; left: 8px; right: 8px; bottom: 8px; border-radius: 50%; border: 5px solid transparent; border-bottom-color: #10b981; border-left-color: #10b981; animation: spin-reverse 1.2s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes spin-reverse { to { transform: rotate(-360deg); } }
+        /* Beautiful Colorful Gradient Spinner */
+        .fancy-spinner { width: 70px; height: 70px; border: 6px solid transparent; border-top-color: #6366f1; border-right-color: #ec4899; border-bottom-color: #10b981; border-left-color: #f59e0b; border-radius: 50%; animation: spin 1.2s linear infinite; box-shadow: 0 0 15px rgba(99, 102, 241, 0.5); }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         .btn-spinner { border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; width: 16px; height: 16px; animation: btn-spin 1s linear infinite; display: inline-block; }
         @keyframes btn-spin { to { transform: rotate(360deg); } }
@@ -63,7 +61,6 @@
            storageBucket: "crop-management-116fe.firebasestorage.app",
            messagingSenderId: "1040293009053",
            appId: "1:1040293009053:web:7b68b487297b534048a674",
-
         };
 
         let auth, db;
@@ -111,7 +108,7 @@
         const ColorfulSpinner = () => {
             return (
                 <div className="flex flex-col justify-center items-center h-screen bg-slate-900">
-                    <div className="smart-spinner"></div>
+                    <div className="fancy-spinner"></div>
                     <p className="mt-8 text-slate-400 font-medium tracking-wider">সিস্টেম লোড হচ্ছে...</p>
                 </div>
             );
@@ -468,6 +465,7 @@
             const [showYearModal, setShowYearModal] = useState(null);
             const [pwdModal, setPwdModal] = useState({ show: false, action: null, message: '' });
             const [showPurgeModal, setShowPurgeModal] = useState(false);
+            const [pdfPreview, setPdfPreview] = useState(null);
             const [toast, setToast] = useState(null);
             const [monthLang, setMonthLang] = useState('bn'); 
             const [formData, setFormData] = useState({ name: '', landAmount: 33, startMonth: 'বৈশাখ', startYear: new Date().getFullYear(), rate: 18000, advance: '' });
@@ -604,38 +602,14 @@
 
             const openPdfPreview = (blob, fileName) => {
                 const url = URL.createObjectURL(blob);
-                const newWindow = window.open('', '_blank');
-                if (newWindow) {
-                    newWindow.document.write(`
-                        <html>
-                            <head>
-                                <title>পিডিএফ প্রিভিউ</title>
-                                <style>
-                                    body { margin: 0; font-family: 'Hind Siliguri', sans-serif; display: flex; flex-direction: column; height: 100vh; background: #f1f5f9; }
-                                    .header { background: #1e293b; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-                                    .title { color: white; font-size: 16px; font-weight: bold; }
-                                    .btn { background: #4f46e5; color: white; padding: 8px 16px; text-decoration: none; border-radius: 6px; font-weight: bold; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
-                                    .btn:hover { background: #4338ca; }
-                                    iframe { flex-grow: 1; border: none; width: 100%; background: white; }
-                                </style>
-                                <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
-                            </head>
-                            <body>
-                                <div class="header">
-                                    <span class="title">পিডিএফ প্রিভিউ</span>
-                                    <a href="${url}" download="${fileName}.pdf" class="btn">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                        ডাউনলোড করুন
-                                    </a>
-                                </div>
-                                <iframe src="${url}"></iframe>
-                            </body>
-                        </html>
-                    `);
-                    newWindow.document.close();
-                } else {
-                    showToastMsg("পপ-আপ ব্লক করা হয়েছে! অনুগ্রহ করে অনুমতি দিন।", "error");
+                setPdfPreview({ url, name: fileName });
+            };
+
+            const closePdfPreview = () => {
+                if (pdfPreview && pdfPreview.url) {
+                    URL.revokeObjectURL(pdfPreview.url); // Clean up memory
                 }
+                setPdfPreview(null);
             };
 
             const exportFarmerPDF = async (farmer) => {
@@ -925,6 +899,23 @@
                     {showYearModal && <AddYearModal farmer={showYearModal} onClose={() => setShowYearModal(null)} onSave={saveNewYear} />}
                     {pwdModal.show && <PasswordConfirmModal onClose={() => setPwdModal({show: false, action: null, message: ''})} onConfirm={pwdModal.action} showToast={showToastMsg} message={pwdModal.message} />}
                     {showPurgeModal && <PurgeDatabaseModal onClose={() => setShowPurgeModal(false)} onConfirm={handlePurgeConfirm} showToast={showToastMsg} />}
+                    
+                    {/* PDF Preview Modal (Same Page) */}
+                    {pdfPreview && (
+                        <div className="fixed inset-0 bg-black/80 z-[100] flex flex-col p-4">
+                            <div className="bg-white rounded-lg p-3 mb-2 flex justify-between items-center shadow-lg">
+                                <h3 className="font-bold text-sm text-slate-800">পিডিএফ প্রিভিউ</h3>
+                                <div className="flex space-x-2">
+                                    <a href={pdfPreview.url} download={`${pdfPreview.name}.pdf`} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-semibold flex items-center space-x-1 hover:bg-indigo-700">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                        <span>ডাউনলোড করুন</span>
+                                    </a>
+                                    <button onClick={closePdfPreview} className="bg-rose-500 text-white px-4 py-2 rounded-lg text-xs font-semibold hover:bg-rose-600">বন্ধ করুন</button>
+                                </div>
+                            </div>
+                            <iframe src={pdfPreview.url} className="w-full flex-grow bg-white rounded-lg shadow-lg" frameBorder="0" title="PDF Preview"></iframe>
+                        </div>
+                    )}
                 </div>
             );
         };
