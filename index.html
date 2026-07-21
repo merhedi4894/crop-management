@@ -60,7 +60,7 @@
            projectId: "crop-management-116fe",
            storageBucket: "crop-management-116fe.firebasestorage.app",
            messagingSenderId: "1040293009053",
-           appId: "1:1040293009053:web:7b68b487297b534048a674"
+           appId: "1:1040293009053:web:7b68b487297b534048a674",
         };
 
         let auth, db;
@@ -436,7 +436,7 @@
                                 <div>
                                     <label className="block text-sm mb-1">শুরুর মাস</label>
                                     <select value={startMonth} onChange={e => setStartMonth(e.target.value)} className="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-                                        {['বৈশাখ', 'জ্যৈষ্ঠ', 'আষাঢ়', 'শ্রাবণ', 'ভাদ্র', 'আশ্বিন', 'কার্তিক', 'অগ্রহায়ণ', 'পৌষ', 'মাঘ', 'ফাল্গুন', 'চৈত্র'].map(m => <option key={m}>{m</option>)}
+                                        {['বৈশাখ', 'জ্যৈষ্ঠ', 'আষাঢ়', 'শ্রাবণ', 'ভাদ্র', 'আশ্বিন', 'কার্তিক', 'অগ্রহায়ণ', 'পৌষ', 'মাঘ', 'ফাল্গুন', 'চৈত্র'].map(m => <option key={m}>{m}</option>)}
                                     </select>
                                 </div>
                                 <div>
@@ -837,8 +837,18 @@
             };
 
             const totalDue = farmers.reduce((acc, f) => acc + f.records.reduce((a, r) => a + r.remaining, 0), 0);
-            const totalPages = Math.ceil(farmers.length / itemsPerPage);
-            const currentFarmers = farmers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+            
+            // Sort farmers to move 'পরিশোধ' (due=0) to the bottom
+            const sortedFarmers = [...farmers].sort((a, b) => {
+                const dueA = a.records.reduce((acc, r) => acc + r.remaining, 0);
+                const dueB = b.records.reduce((acc, r) => acc + r.remaining, 0);
+                if (dueA > 0 && dueB === 0) return -1;
+                if (dueA === 0 && dueB > 0) return 1;
+                return 0;
+            });
+
+            const totalPages = Math.ceil(sortedFarmers.length / itemsPerPage);
+            const currentFarmers = sortedFarmers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
             return (
                 <div className="min-h-screen bg-slate-100 flex flex-col">
