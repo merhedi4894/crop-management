@@ -167,7 +167,7 @@
             return (
                 <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4 relative overflow-hidden">
                     <div className="absolute top-0 -left-20 w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-                    <div className="absolute bottom-0 -right-20 w-96 h-96 bg-emerald-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+                    <div className="absolute bottom-0 -right-20 w-96 h-96 bg-emerald-500 rounded-full mix-blend-multiply filter blur-3xl opacity=20 animate-pulse"></div>
                     <div className="relative bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md z-10">
                         <div className="text-center mb-8">
                             <h2 className="text-3xl font-bold text-slate-800">জমির হারির হিসাব</h2>
@@ -387,7 +387,74 @@
             );
         };
 
-        const FarmerDetailsModal = ({ farmer, onClose, handlePayment, addNewYear, handleDeleteRecord, softDeleteFarmer }) => {
+        const EditFarmerModal = ({ farmer, onClose, onSave }) => {
+            const [name, setName] = useState(farmer.name);
+            const [landAmount, setLandAmount] = useState(farmer.landAmount);
+            const [startMonth, setStartMonth] = useState(farmer.startMonth);
+            const [startYear, setStartYear] = useState(farmer.startYear);
+            const [rate, setRate] = useState(farmer.records[0]?.rate || 0);
+
+            const handleSave = () => {
+                const newLand = Number(landAmount);
+                const newRate = Number(rate);
+                const updatedRecords = farmer.records.map((r, index) => {
+                    const currentRate = index === 0 ? newRate : r.rate;
+                    const total = (newLand / 33) * currentRate;
+                    const paid = r.paid;
+                    const remaining = Math.max(0, total - paid);
+                    return { ...r, rate: currentRate, total, paid, remaining };
+                });
+                onSave({
+                    name,
+                    landAmount: newLand,
+                    startMonth,
+                    startYear: Number(startYear),
+                    records: updatedRecords
+                });
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center p-4" onClick={onClose}>
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 modal-enter" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-xl font-bold text-slate-800 mb-4">চাষীর তথ্য এডিট করুন</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm mb-1">নাম</label>
+                                <input type="text" value={name} onChange={e => setName(e.target.value)} className="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm mb-1">জমির পরিমাণ (শতাংশ)</label>
+                                    <input type="number" value={landAmount} onChange={e => setLandAmount(e.target.value)} className="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm mb-1">প্রথম বছরের দর (৩৩ শতাংশ)</label>
+                                    <input type="number" value={rate} onChange={e => setRate(e.target.value)} className="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm mb-1">শুরুর মাস</label>
+                                    <select value={startMonth} onChange={e => setStartMonth(e.target.value)} className="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                                        {['বৈশাখ', 'জ্যৈষ্ঠ', 'আষাঢ়', 'শ্রাবণ', 'ভাদ্র', 'আশ্বিন', 'কার্তিক', 'অগ্রহায়ণ', 'পৌষ', 'মাঘ', 'ফাল্গুন', 'চৈত্র'].map(m => <option key={m}>{m}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm mb-1">শুরুর সাল</label>
+                                    <input type="number" value={startYear} onChange={e => setStartYear(e.target.value)} className="w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex space-x-2 mt-6">
+                            <button onClick={onClose} className="flex-1 bg-slate-200 py-2 rounded-lg font-semibold text-slate-700">বাতিল</button>
+                            <button onClick={handleSave} className="flex-1 bg-indigo-600 py-2 rounded-lg font-semibold text-white hover:bg-indigo-700">আপডেট করুন</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const FarmerDetailsModal = ({ farmer, onClose, handlePayment, addNewYear, handleDeleteRecord, softDeleteFarmer, onEditClick }) => {
             const [payAmount, setPayAmount] = useState('');
             const fTotalPaid = farmer.records.reduce((a, r) => a + r.paid, 0);
             const fTotalDue = farmer.records.reduce((a, r) => a + r.remaining, 0);
@@ -396,9 +463,11 @@
                 <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center p-4 overflow-y-auto" onClick={onClose}>
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-8 modal-enter" onClick={e => e.stopPropagation()}>
                         <div className="bg-slate-800 text-white p-5 rounded-t-2xl flex justify-between items-center">
-                            <div>
+                            <div className="flex items-center space-x-2">
                                 <h3 className="text-xl font-bold">{farmer.name}</h3>
-                                <p className="text-slate-300 text-xs mt-1">জমি: {farmer.landAmount} শতাংশ | শুরু: {farmer.startMonth}, {farmer.startYear}</p>
+                                <button onClick={onEditClick} className="text-slate-400 hover:text-indigo-400" title="তথ্য এডিট করুন">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                </button>
                             </div>
                             <button onClick={onClose} className="text-slate-400 hover:text-white"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
                         </div>
@@ -463,6 +532,7 @@
             const [showAddForm, setShowAddForm] = useState(false);
             const [selectedFarmer, setSelectedFarmer] = useState(null);
             const [showYearModal, setShowYearModal] = useState(null);
+            const [showEditFarmerModal, setShowEditFarmerModal] = useState(false);
             const [pwdModal, setPwdModal] = useState({ show: false, action: null, message: '' });
             const [showPurgeModal, setShowPurgeModal] = useState(false);
             const [pdfPreview, setPdfPreview] = useState(null);
@@ -527,6 +597,18 @@
                 setShowAddForm(false);
                 setFormData({ name: '', landAmount: 33, startMonth: 'বৈশাখ', startYear: new Date().getFullYear(), rate: 18000, advance: '' });
                 showToastMsg("নতুন চাষী যোগ হয়েছে", "success");
+            };
+
+            const handleEditFarmer = async (updatedData) => {
+                try {
+                    await db.collection('farmers').doc(selectedFarmer.id).update(updatedData);
+                    setSelectedFarmer(prev => ({ ...prev, ...updatedData }));
+                    setFarmers(prevFarmers => prevFarmers.map(f => f.id === selectedFarmer.id ? { ...f, ...updatedData } : f));
+                    setShowEditFarmerModal(false);
+                    showToastMsg("চাষীর তথ্য আপডেট হয়েছে", "success");
+                } catch (err) {
+                    showToastMsg("আপডেট করতে সমস্যা হয়েছে", "error");
+                }
             };
 
             const handlePayment = async (farmer, amount) => {
@@ -901,8 +983,9 @@
                     
                     <Toast message={toast?.msg} type={toast?.type} />
 
-                    {selectedFarmer && <FarmerDetailsModal farmer={selectedFarmer} onClose={() => setSelectedFarmer(null)} handlePayment={handlePayment} addNewYear={addNewYear} handleDeleteRecord={handleDeleteRecord} softDeleteFarmer={softDeleteFarmer} />}
+                    {selectedFarmer && <FarmerDetailsModal farmer={selectedFarmer} onClose={() => setSelectedFarmer(null)} handlePayment={handlePayment} addNewYear={addNewYear} handleDeleteRecord={handleDeleteRecord} softDeleteFarmer={softDeleteFarmer} onEditClick={() => setShowEditFarmerModal(true)} />}
                     {showYearModal && <AddYearModal farmer={showYearModal} onClose={() => setShowYearModal(null)} onSave={saveNewYear} />}
+                    {showEditFarmerModal && <EditFarmerModal farmer={selectedFarmer} onClose={() => setShowEditFarmerModal(false)} onSave={handleEditFarmer} />}
                     {pwdModal.show && <PasswordConfirmModal onClose={() => setPwdModal({show: false, action: null, message: ''})} onConfirm={pwdModal.action} showToast={showToastMsg} message={pwdModal.message} />}
                     {showPurgeModal && <PurgeDatabaseModal onClose={() => setShowPurgeModal(false)} onConfirm={handlePurgeConfirm} showToast={showToastMsg} />}
                     
