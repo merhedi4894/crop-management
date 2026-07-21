@@ -167,7 +167,7 @@
             return (
                 <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4 relative overflow-hidden">
                     <div className="absolute top-0 -left-20 w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-                    <div className="absolute bottom-0 -right-20 w-96 h-96 bg-emerald-500 rounded-full mix-blend-multiply filter blur-3xl opacity=20 animate-pulse"></div>
+                    <div className="absolute bottom-0 -right-20 w-96 h-96 bg-emerald-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
                     <div className="relative bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md z-10">
                         <div className="text-center mb-8">
                             <h2 className="text-3xl font-bold text-slate-800">জমির হারির হিসাব</h2>
@@ -463,11 +463,14 @@
                 <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center p-4 overflow-y-auto" onClick={onClose}>
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl my-8 modal-enter" onClick={e => e.stopPropagation()}>
                         <div className="bg-slate-800 text-white p-5 rounded-t-2xl flex justify-between items-center">
-                            <div className="flex items-center space-x-2">
-                                <h3 className="text-xl font-bold">{farmer.name}</h3>
-                                <button onClick={onEditClick} className="text-slate-400 hover:text-indigo-400" title="তথ্য এডিট করুন">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                </button>
+                            <div className="flex flex-col">
+                                <div className="flex items-center space-x-2">
+                                    <h3 className="text-xl font-bold">{farmer.name}</h3>
+                                    <button onClick={onEditClick} className="text-slate-400 hover:text-indigo-400" title="তথ্য এডিট করুন">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                    </button>
+                                </div>
+                                <span className="text-amber-400 font-bold text-xs mt-1">দর: {farmer.records[0]?.rate.toLocaleString() || 0} ৳ | সাল: {farmer.startYear}</span>
                             </div>
                             <button onClick={onClose} className="text-slate-400 hover:text-white"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
                         </div>
