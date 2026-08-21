@@ -126,7 +126,7 @@
         const ColorfulSpinner = () => {
             return (
                 <div className="flex flex-col justify-center items-center h-screen bg-white">
-                    <h1 className="text-3xl md:text-4xl font-bold text-black tracking-wide pulse-text">হারি ব্যবস্থাপনা</h1>
+                    <h1 className="text-3xl md:text-4xl font-bold text-indigo-600 tracking-wide pulse-text">হারি হিসাব</h1>
                 </div>
             );
         };
@@ -722,7 +722,7 @@
                     showToastMsg("চাষীর তথ্য আপডেট হয়েছে", "success");
                 } catch (err) {
                     console.error("Edit Error:", err);
-                    showToastMsg("আপডেট করতে সমস্যা হয়েছে", "error");
+                    showToastMsg("আপডেট করতে সমস্যা হয়েছে", "error");
                 }
             };
 
