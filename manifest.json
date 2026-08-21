@@ -4,8 +4,8 @@
   "description": "চাষ ও ভূমির হার-হিসাব ব্যবস্থাপনা সিস্টেম",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "icon-192.png",
