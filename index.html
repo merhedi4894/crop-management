@@ -76,26 +76,22 @@
         // ==========================================
         // 2. FIREBASE CONFIGURATION & HELPERS
         // ==========================================
-       // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyCJd1-9NNhmI4rumaanY8A1VF4wLvg4pkg",
-  authDomain: "crop-management-116fe.firebaseapp.com",
-  projectId: "crop-management-116fe",
-  storageBucket: "crop-management-116fe.firebasestorage.app",
-  messagingSenderId: "1040293009053",
-  appId: "1:1040293009053:web:7b68b487297b534048a674",
-  measurementId: "G-SS3FBXZHET"
-};
+        const firebaseConfig = {
+            apiKey: "AIzaSyCJd1-9NNhmI4rumaanY8A1VF4wLvg4pkg",
+            authDomain: "crop-management-116fe.firebaseapp.com",
+            projectId: "crop-management-116fe",
+            storageBucket: "crop-management-116fe.firebasestorage.app",
+            messagingSenderId: "1040293009053",
+            appId: "1:1040293009053:web:7b68b487297b534048a674",
+            measurementId: "G-SS3FBXZHET"
+        };
 
         let auth, db;
         try {
             firebase.initializeApp(firebaseConfig);
             auth = firebase.auth();
             db = firebase.firestore();
-            
-            // Set persistence to NONE: ব্রাউজার বা অ্যাপ বন্ধ করলে অটোমেটিক লগআউট হয়ে যাবে
             auth.setPersistence(firebase.auth.Auth.Persistence.NONE).catch(err => console.error(err));
-            
         } catch (error) { console.error("Firebase Error", error); }
 
         const cleanError = (err) => {
@@ -153,6 +149,7 @@ const firebaseConfig = {
         const Login = ({ setAuthMode, showToast }) => {
             const [emailOrUser, setEmailOrUser] = useState('');
             const [password, setPassword] = useState('');
+            const [showPassword, setShowPassword] = useState(false);
             const [loading, setLoading] = useState(false);
             const [suggestions, setSuggestions] = useState([]);
 
@@ -165,18 +162,18 @@ const firebaseConfig = {
                 e.preventDefault();
                 setLoading(true);
                 try {
-                    let email = emailOrUser;
-                    if (!emailOrUser.includes('@')) {
-                        const snapshot = await db.collection('users').where('username', '==', emailOrUser).limit(1).get();
+                    let email = emailOrUser.trim();
+                    if (!email.includes('@')) {
+                        const snapshot = await db.collection('users').where('username', '==', email).limit(1).get();
                         if (snapshot.empty) throw new Error("ইউজারনেম পাওয়া যায়নি");
                         email = snapshot.docs[0].data().email;
                     }
                     const stored = JSON.parse(localStorage.getItem('loginUsernames') || '[]');
-                    if (!stored.includes(emailOrUser)) {
-                        stored.push(emailOrUser);
+                    if (!stored.includes(emailOrUser.trim())) {
+                        stored.push(emailOrUser.trim());
                         localStorage.setItem('loginUsernames', JSON.stringify(stored));
                     }
-                    await auth.signInWithEmailAndPassword(email, password);
+                    await auth.signInWithEmailAndPassword(email, password.trim());
                 } catch (err) {
                     console.error("Login Error:", err);
                     showToast(cleanError(err), "error");
@@ -206,7 +203,26 @@ const firebaseConfig = {
                                     <label className="block text-sm font-medium text-slate-700">পাসওয়ার্ড</label>
                                     <button type="button" onClick={() => setAuthMode('forgot')} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">ভুলে গেছেন?</button>
                                 </div>
-                                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                                <div className="relative">
+                                    <input 
+                                        type={showPassword ? 'text' : 'password'} 
+                                        value={password} 
+                                        onChange={(e) => setPassword(e.target.value)} 
+                                        required 
+                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-10" 
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setShowPassword(!showPassword)} 
+                                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                                    >
+                                        {showPassword ? (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" /></svg>
+                                        ) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                             <button type="submit" disabled={loading} className={`w-full py-3 rounded-lg text-white font-semibold flex justify-center items-center ${loading ? 'bg-indigo-400' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
                                 {loading ? <span className="btn-spinner mr-2"></span> : 'লগ ইন করুন'}
@@ -223,13 +239,14 @@ const firebaseConfig = {
             const [email, setEmail] = useState('');
             const [mobile, setMobile] = useState('');
             const [password, setPassword] = useState('');
+            const [showPassword, setShowPassword] = useState(false);
             const [loading, setLoading] = useState(false);
             const [uStatus, setUStatus] = useState({msg: '', color: ''});
 
             useEffect(() => {
-                if(username.length > 2) {
+                if(username.trim().length > 2) {
                     const timer = setTimeout(async () => {
-                        const snap = await db.collection('users').where('username', '==', username).get();
+                        const snap = await db.collection('users').where('username', '==', username.trim()).get();
                         if(!snap.empty) setUStatus({msg: 'ইউজারনেমটি আগে ব্যবহার করা হয়েছে', color: 'rose'});
                         else setUStatus({msg: 'ইউজারনেমটি পাওয়া যাচ্ছে', color: 'emerald'});
                     }, 500);
@@ -240,11 +257,19 @@ const firebaseConfig = {
             const handleSignup = async (e) => {
                 e.preventDefault(); setLoading(true);
                 try {
-                    const uSnap = await db.collection('users').where('username', '==', username).get();
-                    const eSnap = await db.collection('users').where('email', '==', email).get();
+                    const cleanUsername = username.trim();
+                    const cleanEmail = email.trim();
+                    
+                    const uSnap = await db.collection('users').where('username', '==', cleanUsername).get();
+                    const eSnap = await db.collection('users').where('email', '==', cleanEmail).get();
                     if(!uSnap.empty || !eSnap.empty) throw new Error("ইউজারনেম বা ইমেইল ব্যবহৃত হচ্ছে!");
-                    const cred = await auth.createUserWithEmailAndPassword(email, password);
-                    await db.collection('users').doc(cred.user.uid).set({ username, email, mobile });
+                    
+                    const cred = await auth.createUserWithEmailAndPassword(cleanEmail, password);
+                    await db.collection('users').doc(cred.user.uid).set({ 
+                        username: cleanUsername, 
+                        email: cleanEmail, 
+                        mobile: mobile.trim() 
+                    });
                     showToast("সাইন আপ সফল হয়েছে!", "success");
                 } catch (err) {
                     console.error("Signup Error:", err);
@@ -270,7 +295,29 @@ const firebaseConfig = {
                                 <div><label className="block text-sm font-medium text-slate-700 mb-1.5">ইমেইল</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" /></div>
                                 <div><label className="block text-sm font-medium text-slate-700 mb-1.5">মোবাইল</label><input type="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} required className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" /></div>
                             </div>
-                            <div><label className="block text-sm font-medium text-slate-700 mb-1.5">পাসওয়ার্ড</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1.5">পাসওয়ার্ড</label>
+                                <div className="relative">
+                                    <input 
+                                        type={showPassword ? 'text' : 'password'} 
+                                        value={password} 
+                                        onChange={(e) => setPassword(e.target.value)} 
+                                        required 
+                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-10" 
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setShowPassword(!showPassword)} 
+                                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                                    >
+                                        {showPassword ? (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" /></svg>
+                                        ) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
                             <button type="submit" disabled={loading || uStatus.color === 'rose'} className={`w-full py-3 rounded-lg text-white font-semibold flex justify-center items-center ${loading || uStatus.color === 'rose' ? 'bg-slate-400' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
                                 {loading ? <span className="btn-spinner mr-2"></span> : 'সাইন আপ করুন'}
                             </button>
@@ -287,7 +334,7 @@ const firebaseConfig = {
 
             const handleReset = async (e) => {
                 e.preventDefault(); setLoading(true);
-                try { await auth.sendPasswordResetEmail(email); showToast("রিসেট লিংক ইমেইলে পাঠানো হয়েছে", "success"); setAuthMode('login'); } 
+                try { await auth.sendPasswordResetEmail(email.trim()); showToast("রিসেট লিংক ইমেইলে পাঠানো হয়েছে", "success"); setAuthMode('login'); } 
                 catch (err) {
                     console.error("Reset Error:", err);
                     showToast(cleanError(err), "error");
@@ -316,6 +363,7 @@ const firebaseConfig = {
         // ==========================================
         const PasswordConfirmModal = ({ onClose, onConfirm, showToast, message }) => {
             const [pwd, setPwd] = useState('');
+            const [showPassword, setShowPassword] = useState(false);
             const [loading, setLoading] = useState(false);
 
             const handleConfirm = async () => {
@@ -336,7 +384,26 @@ const firebaseConfig = {
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 modal-enter" onClick={e => e.stopPropagation()}>
                         <h3 className="text-xl font-bold text-slate-800 mb-2">নিরাপত্তা যাচাইকরণ</h3>
                         <p className="text-sm text-rose-600 font-medium mb-4">{message || "এই কাজটি করার জন্য আপনার পাসওয়ার্ড দিন।"}</p>
-                        <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-rose-500 outline-none" placeholder="পাসওয়ার্ড" />
+                        <div className="relative mb-4">
+                            <input 
+                                type={showPassword ? 'text' : 'password'} 
+                                value={pwd} 
+                                onChange={e => setPwd(e.target.value)} 
+                                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 outline-none pr-10" 
+                                placeholder="পাসওয়ার্ড" 
+                            />
+                            <button 
+                                type="button" 
+                                onClick={() => setShowPassword(!showPassword)} 
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                            >
+                                {showPassword ? (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" /></svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                )}
+                            </button>
+                        </div>
                         <div className="flex space-x-2">
                             <button onClick={onClose} className="flex-1 bg-slate-200 py-2 rounded-lg font-semibold text-slate-700">বাতিল</button>
                             <button onClick={handleConfirm} disabled={loading || !pwd} className={`flex-1 py-2 rounded-lg font-semibold text-white flex justify-center items-center ${loading ? 'bg-rose-400' : 'bg-rose-600 hover:bg-rose-700'}`}>
@@ -352,6 +419,7 @@ const firebaseConfig = {
             const [fromY, setFromY] = useState('');
             const [toY, setToY] = useState('');
             const [pwd, setPwd] = useState('');
+            const [showPassword, setShowPassword] = useState(false);
             const [loading, setLoading] = useState(false);
 
             const handleConfirm = async () => {
@@ -377,7 +445,26 @@ const firebaseConfig = {
                             <div><label className="text-xs block mb-1">কোন সাল থেকে?</label><input type="number" value={fromY} onChange={e => setFromY(e.target.value)} className="w-full p-2 border rounded text-sm outline-none focus:ring-1 focus:ring-rose-500" /></div>
                             <div><label className="text-xs block mb-1">কোন সাল পর্যন্ত?</label><input type="number" value={toY} onChange={e => setToY(e.target.value)} className="w-full p-2 border rounded text-sm outline-none focus:ring-1 focus:ring-rose-500" /></div>
                         </div>
-                        <input type="password" value={pwd} onChange={e => setPwd(e.target.value)} className="w-full p-2.5 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-rose-500 outline-none" placeholder="পাসওয়ার্ড" />
+                        <div className="relative mb-4">
+                            <input 
+                                type={showPassword ? 'text' : 'password'} 
+                                value={pwd} 
+                                onChange={e => setPwd(e.target.value)} 
+                                className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 outline-none pr-10" 
+                                placeholder="পাসওয়ার্ড" 
+                            />
+                            <button 
+                                type="button" 
+                                onClick={() => setShowPassword(!showPassword)} 
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-700"
+                            >
+                                {showPassword ? (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" /></svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                )}
+                            </button>
+                        </div>
                         <div className="flex space-x-2">
                             <button onClick={onClose} className="flex-1 bg-slate-200 py-2 rounded-lg font-semibold text-slate-700">বাতিল</button>
                             <button onClick={handleConfirm} disabled={loading || !pwd} className={`flex-1 py-2 rounded-lg font-semibold text-white flex justify-center items-center ${loading ? 'bg-rose-400' : 'bg-rose-600 hover:bg-rose-700'}`}>
